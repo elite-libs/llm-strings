@@ -8,7 +8,29 @@ export type Provider =
   | "openrouter"
   | "vercel";
 
-export type HostAlias = Provider;
+export type HostAlias =
+  | Provider
+  | "aistudio"
+  | "alibaba"
+  | "alibabacloud"
+  | "atlascloud"
+  | "baidu"
+  | "dashscope"
+  | "deepinfra"
+  | "fireworks"
+  | "fireworksai"
+  | "grok"
+  | "minimax"
+  | "novita"
+  | "novitaai"
+  | "parasail"
+  | "qianfan"
+  | "vertex"
+  | "venice"
+  | "wandb"
+  | "weightsandbiases"
+  | "xai"
+  | "xiaomi";
 
 type Env = Record<string, string | undefined>;
 
@@ -18,15 +40,40 @@ declare const process:
     }
   | undefined;
 
+function hasOwn<T extends object>(object: T, key: PropertyKey): key is keyof T {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
 export const HOST_ALIASES: Record<HostAlias, string> = {
   openai: "api.openai.com",
   anthropic: "api.anthropic.com",
   google: "generativelanguage.googleapis.com",
+  aistudio: "generativelanguage.googleapis.com",
   mistral: "api.mistral.ai",
   cohere: "api.cohere.com",
   bedrock: "bedrock-runtime.us-east-1.amazonaws.com",
   openrouter: "openrouter.ai",
   vercel: "gateway.ai.vercel.app",
+  alibaba: "dashscope-intl.aliyuncs.com",
+  alibabacloud: "dashscope-intl.aliyuncs.com",
+  dashscope: "dashscope-intl.aliyuncs.com",
+  fireworks: "api.fireworks.ai",
+  fireworksai: "api.fireworks.ai",
+  venice: "api.venice.ai",
+  parasail: "api.parasail.io",
+  deepinfra: "api.deepinfra.com",
+  atlascloud: "api.atlascloud.ai",
+  novita: "api.novita.ai",
+  novitaai: "api.novita.ai",
+  grok: "api.x.ai",
+  xai: "api.x.ai",
+  wandb: "api.inference.wandb.ai",
+  weightsandbiases: "api.inference.wandb.ai",
+  baidu: "qianfan.baidubce.com",
+  qianfan: "qianfan.baidubce.com",
+  vertex: "aiplatform.googleapis.com",
+  xiaomi: "api.xiaomimimo.com",
+  minimax: "api.minimax.io",
 };
 
 export interface HostResolution {
@@ -75,7 +122,7 @@ export function resolveHostAlias(
   env: Env = readProcessEnv(),
 ): HostResolution {
   const normalizedHost = host.toLowerCase();
-  if (!Object.hasOwn(HOST_ALIASES, normalizedHost)) {
+  if (!hasOwn(HOST_ALIASES, normalizedHost)) {
     return { host };
   }
 
@@ -89,7 +136,7 @@ export function resolveHostAlias(
 
 export function providerFromHostAlias(alias: string): Provider | undefined {
   const normalizedAlias = alias.toLowerCase();
-  if (Object.hasOwn(HOST_ALIASES, normalizedAlias)) {
+  if (hasOwn(PROVIDER_PARAMS, normalizedAlias)) {
     return normalizedAlias as Provider;
   }
   return undefined;

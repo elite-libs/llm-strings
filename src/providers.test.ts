@@ -66,6 +66,40 @@ describe("host aliases", () => {
     });
   });
 
+  it("resolves second-tier provider aliases", () => {
+    expect(resolveHostAlias("fireworks")).toEqual({
+      host: "api.fireworks.ai",
+      alias: "fireworks",
+    });
+    expect(resolveHostAlias("venice")).toEqual({
+      host: "api.venice.ai",
+      alias: "venice",
+    });
+    expect(resolveHostAlias("deepinfra")).toEqual({
+      host: "api.deepinfra.com",
+      alias: "deepinfra",
+    });
+    expect(resolveHostAlias("grok")).toEqual({
+      host: "api.x.ai",
+      alias: "grok",
+    });
+    expect(resolveHostAlias("wandb")).toEqual({
+      host: "api.inference.wandb.ai",
+      alias: "wandb",
+    });
+  });
+
+  it("resolves Google Vertex and AI Studio aliases", () => {
+    expect(resolveHostAlias("vertex")).toEqual({
+      host: "aiplatform.googleapis.com",
+      alias: "vertex",
+    });
+    expect(resolveHostAlias("aistudio")).toEqual({
+      host: "generativelanguage.googleapis.com",
+      alias: "aistudio",
+    });
+  });
+
   it("resolves aliases with explicit env overrides", () => {
     expect(
       resolveHostAlias("bedrock", {

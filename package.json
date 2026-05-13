@@ -1,6 +1,7 @@
 {
   "name": "llm-strings",
   "version": "1.1.2",
+  "packageManager": "pnpm@11.1.1",
   "description": "Parse and build LLM connection strings — like database URLs, but for LLM APIs",
   "type": "module",
   "sideEffects": false,
