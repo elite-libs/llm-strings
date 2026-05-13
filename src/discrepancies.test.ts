@@ -10,7 +10,9 @@ describe("Parameter Discrepancies & Validation", () => {
         "llm://api.anthropic.com/claude-sonnet-4-5-20250929?temperature=0.7&top_p=0.9",
       );
       expect(issues).toHaveLength(1);
-      expect(issues[0].message).toContain('Cannot specify both "temperature" and "top_p"');
+      expect(issues[0].message).toContain(
+        'Cannot specify both "temperature" and "top_p"',
+      );
     });
 
     it("should fail validation if both temperature and topP are provided for Bedrock Claude", () => {
@@ -18,7 +20,9 @@ describe("Parameter Discrepancies & Validation", () => {
         "llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?temperature=0.7&top_p=0.9",
       );
       expect(issues).toHaveLength(1);
-      expect(issues[0].message).toContain('Cannot specify both "temperature" and "topP"');
+      expect(issues[0].message).toContain(
+        'Cannot specify both "temperature" and "topP"',
+      );
     });
 
     it("should pass validation if only temperature is provided", () => {
@@ -42,7 +46,9 @@ describe("Parameter Discrepancies & Validation", () => {
         "llm://bedrock-runtime.us-east-1.amazonaws.com/amazon.nova-lite-v1:0?topk=50",
       );
       expect(issues).toHaveLength(1);
-      expect(issues[0].message).toContain('"topK" is not supported by amazon models');
+      expect(issues[0].message).toContain(
+        '"topK" is not supported by amazon models',
+      );
     });
   });
 

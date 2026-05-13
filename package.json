@@ -49,6 +49,16 @@
         "default": "./dist/validate.cjs"
       }
     },
+    "./ai-sdk": {
+      "import": {
+        "types": "./dist/ai-sdk.d.ts",
+        "default": "./dist/ai-sdk.js"
+      },
+      "require": {
+        "types": "./dist/ai-sdk.d.cts",
+        "default": "./dist/ai-sdk.cjs"
+      }
+    },
     "./providers": {
       "import": {
         "types": "./dist/providers.d.ts",

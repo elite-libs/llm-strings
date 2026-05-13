@@ -6,6 +6,7 @@ export default defineConfig({
     "src/parse.ts",
     "src/normalize.ts",
     "src/validate.ts",
+    "src/ai-sdk.ts",
     "src/providers.ts",
   ],
   format: ["esm", "cjs"],

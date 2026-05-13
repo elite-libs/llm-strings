@@ -207,6 +207,34 @@ const response = await fetch(`https://${config.host}/v1/chat/completions`, {
 });
 ```
 
+### AI SDK providerOptions
+
+The AI SDK adapter is available as a separate subpath so you can load it only
+where you need it:
+
+```ts
+import { parse } from "llm-strings";
+
+const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
+
+const { providerOptions } = createAiSdkProviderOptions(
+  parse("llm://api.anthropic.com/claude-sonnet-4-5?cache=1h&effort=max"),
+);
+
+// {
+//   anthropic: {
+//     cacheControl: { type: "ephemeral", ttl: "1h" },
+//     effort: "max"
+//   }
+// }
+```
+
+Common generation settings like `temperature`, `topP`, and `maxOutputTokens`
+belong on the AI SDK call itself, so this helper only emits provider-specific
+configuration such as Anthropic cache control, Bedrock cache points, OpenAI
+reasoning options, Mistral `safePrompt`, OpenRouter reasoning, and Vercel AI
+Gateway routing options.
+
 ### Prompt caching (Anthropic & Bedrock)
 
 ```ts

@@ -27,9 +27,7 @@ export interface ValidateOptions {
 /**
  * Build a reverse map from provider-specific param names back to canonical names.
  */
-function buildReverseParamMap(
-  provider: Provider,
-): Record<string, string> {
+function buildReverseParamMap(provider: Provider): Record<string, string> {
   const map: Record<string, string> = {};
   for (const [canonical, specific] of Object.entries(
     PROVIDER_PARAMS[provider],
@@ -178,11 +176,7 @@ export function validate(
     // canonical names to find the sub-provider's spec
     let spec: ParamSpec | undefined = specs[key];
     if (subProvider && gatewayReverseMap && !spec) {
-      const result = lookupSubProviderSpec(
-        key,
-        gatewayReverseMap,
-        subProvider,
-      );
+      const result = lookupSubProviderSpec(key, gatewayReverseMap, subProvider);
       spec = result.spec;
     }
     if (!spec) continue;

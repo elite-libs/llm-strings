@@ -238,17 +238,13 @@ describe("normalize", () => {
     });
 
     it("maps effort → reasoning_effort", () => {
-      const config = parse(
-        "llm://openrouter.ai/openai/o3?effort=high",
-      );
+      const config = parse("llm://openrouter.ai/openai/o3?effort=high");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ reasoning_effort: "high" });
     });
 
     it("remaps max_tokens → max_completion_tokens for reasoning models via OpenRouter", () => {
-      const config = parse(
-        "llm://openrouter.ai/openai/o3?max=4096",
-      );
+      const config = parse("llm://openrouter.ai/openai/o3?max=4096");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ max_completion_tokens: "4096" });
     });
@@ -331,16 +327,12 @@ describe("normalize", () => {
     });
 
     it("detects openrouter", () => {
-      const config = parse(
-        "llm://openrouter.ai/anthropic/claude-sonnet-4-5",
-      );
+      const config = parse("llm://openrouter.ai/anthropic/claude-sonnet-4-5");
       expect(normalize(config).provider).toBe("openrouter");
     });
 
     it("detects vercel", () => {
-      const config = parse(
-        "llm://gateway.ai.vercel.sh/openai/gpt-5.2",
-      );
+      const config = parse("llm://gateway.ai.vercel.sh/openai/gpt-5.2");
       expect(normalize(config).provider).toBe("vercel");
     });
 
@@ -365,9 +357,7 @@ describe("normalize", () => {
     });
 
     it("returns empty changes when verbose is false", () => {
-      const config = parse(
-        "llm://api.openai.com/gpt-5.2?temp=0.7",
-      );
+      const config = parse("llm://api.openai.com/gpt-5.2?temp=0.7");
       const { changes } = normalize(config, { verbose: false });
       expect(changes).toEqual([]);
     });
@@ -386,9 +376,7 @@ describe("normalize", () => {
     });
 
     it("passes through unknown params for unknown providers", () => {
-      const config = parse(
-        "llm://custom.api.com/my-model?custom_param=hello",
-      );
+      const config = parse("llm://custom.api.com/my-model?custom_param=hello");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ custom_param: "hello" });
     });

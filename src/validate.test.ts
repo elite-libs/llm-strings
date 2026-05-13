@@ -63,7 +63,9 @@ describe("validate", () => {
     });
 
     it("flags Cohere k > 500", () => {
-      const issues = validate("llm://api.cohere.com/command-a-03-2025?topk=600");
+      const issues = validate(
+        "llm://api.cohere.com/command-a-03-2025?topk=600",
+      );
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 500");
     });
@@ -155,9 +157,7 @@ describe("validate", () => {
 
     it("allows max_completion_tokens on reasoning models", () => {
       const issues = validate("llm://api.openai.com/o3?max=4096");
-      expect(
-        issues.filter((i) => i.severity === "error"),
-      ).toEqual([]);
+      expect(issues.filter((i) => i.severity === "error")).toEqual([]);
     });
   });
 
@@ -225,17 +225,13 @@ describe("validate", () => {
     });
 
     it("flags temperature > 2 on OpenRouter", () => {
-      const issues = validate(
-        "llm://openrouter.ai/openai/gpt-5.2?temp=3.0",
-      );
+      const issues = validate("llm://openrouter.ai/openai/gpt-5.2?temp=3.0");
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 2");
     });
 
     it("flags temperature on reasoning models via OpenRouter", () => {
-      const issues = validate(
-        "llm://openrouter.ai/openai/o3?temp=0.7",
-      );
+      const issues = validate("llm://openrouter.ai/openai/o3?temp=0.7");
       expect(issues.some((i) => i.message.includes("not supported"))).toBe(
         true,
       );
@@ -281,13 +277,13 @@ describe("validate", () => {
       const issues = validate(
         "llm://openrouter.ai/anthropic/claude-sonnet-4-5?temp=0.7&top_p=0.9",
       );
-      expect(issues.some((i) => i.message.includes("Cannot specify both"))).toBe(true);
+      expect(
+        issues.some((i) => i.message.includes("Cannot specify both")),
+      ).toBe(true);
     });
 
     it("falls back to gateway specs for unknown sub-provider", () => {
-      const issues = validate(
-        "llm://openrouter.ai/qwen/qwen2.5-pro?temp=1.5",
-      );
+      const issues = validate("llm://openrouter.ai/qwen/qwen2.5-pro?temp=1.5");
       expect(issues).toEqual([]);
     });
 
