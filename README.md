@@ -19,9 +19,8 @@
 llm://api.openai.com/gpt-5.2?temp=0.7&max=2000
 llm://my-app:sk-key-123@api.anthropic.com/claude-sonnet-4-5?cache=5m
 llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5
+llm://openai/gpt-5.2?temp=0.7&max=2000
 ```
-
-
 
 Every LLM provider invented their own parameter names. `max_tokens` vs `maxOutputTokens` vs `maxTokens`. `top_p` vs `topP` vs `p`. `stop` vs `stop_sequences` vs `stopSequences`. You write the config once, then rewrite it for every provider.
 
@@ -53,7 +52,11 @@ const issues = validate("llm://api.openai.com/gpt-5.2?temp=3.0");
 // → [{ param: "temperature", message: '"temperature" must be <= 2, got 3', severity: "error" }]
 
 // Build a connection string from a config object
-const str = build({ host: "api.openai.com", model: "gpt-5.2", params: { temperature: "0.7" } });
+const str = build({
+  host: "api.openai.com",
+  model: "gpt-5.2",
+  params: { temperature: "0.7" },
+});
 // → "llm://api.openai.com/gpt-5.2?temperature=0.7"
 ```
 
@@ -89,6 +92,7 @@ Your code stays the same. `normalize()` handles the parameter translation.
 - **Zero dependencies** — Pure TypeScript. No runtime baggage.
 - **Portable config** — Fits in an env var, a CLI flag, a config file, or a database column.
 - **Shorthand aliases** — Use `temp`, `max`, `topp`, `freq`, `pres` — they all expand to the right thing.
+- **Short host aliases** — Use `llm://openai/...`, `llm://anthropic/...`, `llm://bedrock/...`, etc. Env overrides can redirect aliases to regional or private endpoints.
 
 ## Format
 
@@ -96,13 +100,13 @@ Your code stays the same. `normalize()` handles the parameter translation.
 llm://[label[:apiKey]@]host/model[?params]
 ```
 
-| Part       | Required | Description                               | Example                        |
-| ---------- | -------- | ----------------------------------------- | ------------------------------ |
-| `label`    | No       | App name or identifier                    | `my-app`                       |
-| `apiKey`   | No       | API key (in the password position)        | `sk-proj-abc123`               |
-| `host`     | Yes      | Provider's API hostname                   | `api.openai.com`               |
-| `model`    | Yes      | Model name or ID                          | `gpt-5.2`                      |
-| `params`   | No       | Key-value config (query string)           | `temp=0.7&max=2000`            |
+| Part     | Required | Description                        | Example                    |
+| -------- | -------- | ---------------------------------- | -------------------------- |
+| `label`  | No       | App name or identifier             | `my-app`                   |
+| `apiKey` | No       | API key (in the password position) | `sk-proj-abc123`           |
+| `host`   | Yes      | Provider's API host or short alias | `api.openai.com`, `openai` |
+| `model`  | Yes      | Model name or ID                   | `gpt-5.2`                  |
+| `params` | No       | Key-value config (query string)    | `temp=0.7&max=2000`        |
 
 ## Examples
 
@@ -129,6 +133,30 @@ for (const str of strings) {
 // google:    { temperature: "0.7", maxOutputTokens: "2000", topP: "0.9" }
 ```
 
+### Short host aliases
+
+Provider IDs can be used as short hostnames:
+
+```ts
+import { parse, normalize } from "llm-strings";
+
+const { config, provider } = normalize(parse("llm://openai/gpt-5.2?temp=0.7"));
+
+config.host; // "api.openai.com"
+provider; // "openai"
+```
+
+Built-in aliases: `openai`, `anthropic`, `google`, `mistral`, `cohere`, `bedrock`, `openrouter`, `vercel`.
+
+Set env overrides to point an alias at a regional or private endpoint:
+
+```sh
+LLM_STRINGS_OPENAI_HOST="regional.openai.example.com"
+LLM_STRINGS_BEDROCK_HOST="bedrock-runtime.us-west-2.amazonaws.com"
+```
+
+The alternate form `LLM_STRINGS_HOST_OPENAI` is also supported. Overrides may include a scheme or path; only the host portion is used.
+
 ### Validating before calling the API
 
 Catch bad config before it hits the network:
@@ -138,7 +166,7 @@ import { validate } from "llm-strings";
 
 // Anthropic doesn't allow temperature + top_p together
 const issues = validate(
-  "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&top_p=0.9"
+  "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&top_p=0.9",
 );
 
 for (const issue of issues) {
@@ -173,7 +201,7 @@ const response = await fetch(`https://${config.host}/v1/chat/completions`, {
     model: config.model,
     messages: [{ role: "user", content: "Hello!" }],
     ...Object.fromEntries(
-      Object.entries(config.params).map(([k, v]) => [k, isNaN(+v) ? v : +v])
+      Object.entries(config.params).map(([k, v]) => [k, isNaN(+v) ? v : +v]),
     ),
   }),
 });
@@ -186,21 +214,21 @@ import { parse, normalize } from "llm-strings";
 
 // cache=true → cache_control=ephemeral
 const { config } = normalize(
-  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=true")
+  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=true"),
 );
 // → params: { max_tokens: "4096", cache_control: "ephemeral" }
 
 // cache=5m → cache_control=ephemeral + cache_ttl=5m
 const { config: withTtl } = normalize(
-  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=5m")
+  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=5m"),
 );
 // → params: { max_tokens: "4096", cache_control: "ephemeral", cache_ttl: "5m" }
 
 // Works on Bedrock too (Claude and Nova models)
 const { config: bedrock } = normalize(
   parse(
-    "llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?cache=1h"
-  )
+    "llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?cache=1h",
+  ),
 );
 // → params: { cache_control: "ephemeral", cache_ttl: "1h" }
 ```
@@ -214,9 +242,9 @@ import { parse, normalize } from "llm-strings";
 
 const { changes } = normalize(
   parse(
-    "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?temp=0.7&max=2000&topp=0.9"
+    "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?temp=0.7&max=2000&topp=0.9",
   ),
-  { verbose: true }
+  { verbose: true },
 );
 
 for (const c of changes) {
@@ -251,7 +279,7 @@ import { parse, normalize } from "llm-strings";
 import { detectBedrockModelFamily } from "llm-strings/providers";
 
 const config = parse(
-  "llm://bedrock-runtime.us-east-1.amazonaws.com/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096"
+  "llm://bedrock-runtime.us-east-1.amazonaws.com/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096",
 );
 
 detectBedrockModelFamily(config.model);
@@ -269,7 +297,7 @@ import { parse, normalize, validate } from "llm-strings";
 
 // OpenRouter proxies to any provider
 const { config } = normalize(
-  parse("llm://openrouter.ai/anthropic/claude-sonnet-4-5?temp=0.7&max=2000")
+  parse("llm://openrouter.ai/anthropic/claude-sonnet-4-5?temp=0.7&max=2000"),
 );
 // → params: { temperature: "0.7", max_tokens: "2000" }
 
@@ -298,19 +326,19 @@ Gateways like OpenRouter and Vercel route to any upstream provider. Bedrock host
 
 Use these shortcuts in your connection strings — they expand automatically during normalization:
 
-| Shorthand                                                            | Canonical            |
-| -------------------------------------------------------------------- | -------------------- |
-| `temp`                                                               | `temperature`        |
-| `max`, `max_out`, `max_output`, `max_output_tokens`, `maxTokens`, `maxOutputTokens`, `max_completion_tokens` | `max_tokens`         |
-| `topp`, `topP`, `nucleus`                                            | `top_p`              |
-| `topk`, `topK`                                                       | `top_k`              |
-| `freq`, `freq_penalty`, `frequencyPenalty`, `repetition_penalty`     | `frequency_penalty`  |
-| `pres`, `pres_penalty`, `presencePenalty`                            | `presence_penalty`   |
-| `stop_sequences`, `stopSequences`, `stop_sequence`                   | `stop`               |
-| `random_seed`, `randomSeed`                                          | `seed`               |
-| `candidateCount`, `candidate_count`, `num_completions`               | `n`                  |
-| `reasoning`, `reasoning_effort`                                      | `effort`             |
-| `cache_control`, `cacheControl`, `cachePoint`, `cache_point`         | `cache`              |
+| Shorthand                                                                                                    | Canonical           |
+| ------------------------------------------------------------------------------------------------------------ | ------------------- |
+| `temp`                                                                                                       | `temperature`       |
+| `max`, `max_out`, `max_output`, `max_output_tokens`, `maxTokens`, `maxOutputTokens`, `max_completion_tokens` | `max_tokens`        |
+| `topp`, `topP`, `nucleus`                                                                                    | `top_p`             |
+| `topk`, `topK`                                                                                               | `top_k`             |
+| `freq`, `freq_penalty`, `frequencyPenalty`, `repetition_penalty`                                             | `frequency_penalty` |
+| `pres`, `pres_penalty`, `presencePenalty`                                                                    | `presence_penalty`  |
+| `stop_sequences`, `stopSequences`, `stop_sequence`                                                           | `stop`              |
+| `random_seed`, `randomSeed`                                                                                  | `seed`              |
+| `candidateCount`, `candidate_count`, `num_completions`                                                       | `n`                 |
+| `reasoning`, `reasoning_effort`                                                                              | `effort`            |
+| `cache_control`, `cacheControl`, `cachePoint`, `cache_point`                                                 | `cache`             |
 
 ## Sub-path Imports
 
@@ -320,7 +348,14 @@ For smaller bundles, import only what you need:
 import { parse, build } from "llm-strings/parse";
 import { normalize } from "llm-strings/normalize";
 import { validate } from "llm-strings/validate";
-import { detectProvider, ALIASES, PROVIDER_PARAMS, PARAM_SPECS } from "llm-strings/providers";
+import {
+  detectProvider,
+  resolveHostAlias,
+  ALIASES,
+  HOST_ALIASES,
+  PROVIDER_PARAMS,
+  PARAM_SPECS,
+} from "llm-strings/providers";
 ```
 
 All sub-paths ship ESM + CJS with full type declarations.
@@ -367,6 +402,10 @@ validate("llm://custom-api.com/my-model?temp=0.5", { strict: true });
 
 Identifies the provider from a hostname string.
 
+### `resolveHostAlias(host): HostResolution`
+
+Expands provider short host aliases such as `"openai"` to canonical hosts such as `"api.openai.com"`. Reads `LLM_STRINGS_<PROVIDER>_HOST` and `LLM_STRINGS_HOST_<PROVIDER>` env overrides when available.
+
 ### `detectBedrockModelFamily(model): BedrockModelFamily | undefined`
 
 Identifies the model family (anthropic, meta, amazon, mistral, cohere, ai21) from a Bedrock model ID. Handles cross-region (`us.`, `eu.`, `apac.`) and global inference profiles.
@@ -393,15 +432,16 @@ Returns `true` if the Bedrock model supports prompt caching (Claude and Nova mod
 
 ### Constants
 
-| Export | Description |
-| --- | --- |
-| `ALIASES` | Shorthand → canonical param name mapping |
-| `PROVIDER_PARAMS` | Canonical → provider-specific param names, per provider |
-| `PARAM_SPECS` | Validation rules (type, min/max, enum) per provider, keyed by provider-specific param name |
-| `REASONING_MODEL_UNSUPPORTED` | Set of canonical params unsupported by reasoning models |
-| `PROVIDER_META` | Array of provider metadata (id, name, host, brand color) for UI integrations |
-| `MODELS` | Suggested model IDs per provider |
-| `CANONICAL_PARAM_SPECS` | Canonical param specs per provider with descriptions — useful for building UIs |
+| Export                        | Description                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `ALIASES`                     | Shorthand → canonical param name mapping                                                   |
+| `HOST_ALIASES`                | Short provider host aliases → canonical API hosts                                          |
+| `PROVIDER_PARAMS`             | Canonical → provider-specific param names, per provider                                    |
+| `PARAM_SPECS`                 | Validation rules (type, min/max, enum) per provider, keyed by provider-specific param name |
+| `REASONING_MODEL_UNSUPPORTED` | Set of canonical params unsupported by reasoning models                                    |
+| `PROVIDER_META`               | Array of provider metadata (id, name, host, brand color) for UI integrations               |
+| `MODELS`                      | Suggested model IDs per provider                                                           |
+| `CANONICAL_PARAM_SPECS`       | Canonical param specs per provider with descriptions — useful for building UIs             |
 
 ## TypeScript
 
@@ -433,7 +473,11 @@ import type {
 The library exports metadata useful for building UIs — provider names, brand colors, suggested models, and canonical parameter specs:
 
 ```ts
-import { PROVIDER_META, MODELS, CANONICAL_PARAM_SPECS } from "llm-strings/providers";
+import {
+  PROVIDER_META,
+  MODELS,
+  CANONICAL_PARAM_SPECS,
+} from "llm-strings/providers";
 
 // Provider display info
 PROVIDER_META.forEach((p) => console.log(`${p.name}: ${p.host} (${p.color})`));
@@ -442,7 +486,7 @@ PROVIDER_META.forEach((p) => console.log(`${p.name}: ${p.host} (${p.color})`));
 // ...
 
 // Suggested models per provider
-MODELS.openai;    // → ["gpt-5.2", "gpt-5.2-pro", "gpt-4.1", "gpt-4.1-mini", ...]
+MODELS.openai; // → ["gpt-5.2", "gpt-5.2-pro", "gpt-4.1", "gpt-4.1-mini", ...]
 MODELS.anthropic; // → ["claude-opus-4-6", "claude-sonnet-4-6", "claude-sonnet-4-5", ...]
 
 // Canonical param specs — useful for building config forms

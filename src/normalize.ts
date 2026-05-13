@@ -11,6 +11,7 @@ import {
   detectProvider,
   isGatewayProvider,
   isReasoningModel,
+  providerFromHostAlias,
   type Provider,
 } from "./provider-core.js";
 
@@ -48,7 +49,9 @@ export function normalize(
   config: LlmConnectionConfig,
   options: NormalizeOptions = {},
 ): NormalizeResult {
-  const provider = detectProvider(config.host);
+  const provider =
+    (config.hostAlias ? providerFromHostAlias(config.hostAlias) : undefined) ??
+    detectProvider(config.host);
   const subProvider =
     provider && isGatewayProvider(provider)
       ? detectGatewaySubProvider(config.model)
@@ -99,8 +102,7 @@ export function normalize(
       const isDuration = DURATION_RE.test(value);
 
       if (isBool || isDuration) {
-        const providerKey =
-          PROVIDER_PARAMS[provider]?.["cache"] ?? "cache";
+        const providerKey = PROVIDER_PARAMS[provider]?.["cache"] ?? "cache";
         if (options.verbose) {
           changes.push({
             from: "cache",

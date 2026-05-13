@@ -1,8 +1,13 @@
+import { resolveHostAlias } from "./provider-core.js";
+import type { HostAlias } from "./provider-core.js";
+
 export interface LlmConnectionConfig {
   /** The original connection string */
   raw: string;
-  /** Provider's API base URL (e.g. "api.openai.com") */
+  /** Provider's API host (e.g. "api.openai.com") */
   host: string;
+  /** Short provider alias that was expanded to host, if any. */
+  hostAlias?: HostAlias;
   /** Model name (e.g. "gpt-5.2") */
   model: string;
   /** Optional label or app name */
@@ -33,7 +38,7 @@ export function parse(connectionString: string): LlmConnectionConfig {
     );
   }
 
-  const host = url.hostname;
+  const { host, alias: hostAlias } = resolveHostAlias(url.host);
   const model = url.pathname.replace(/^\//, "");
   const label = url.username || undefined;
   const apiKey = url.password || undefined;
@@ -46,6 +51,7 @@ export function parse(connectionString: string): LlmConnectionConfig {
   return {
     raw: connectionString,
     host,
+    hostAlias,
     model,
     label,
     apiKey,
@@ -57,6 +63,7 @@ export function parse(connectionString: string): LlmConnectionConfig {
  * Build an LLM connection string from a config object.
  */
 export function build(config: Omit<LlmConnectionConfig, "raw">): string {
+  const { host } = resolveHostAlias(config.host);
   const auth =
     config.label || config.apiKey
       ? `${config.label ?? ""}${config.apiKey ? `:${config.apiKey}` : ""}@`
@@ -65,5 +72,5 @@ export function build(config: Omit<LlmConnectionConfig, "raw">): string {
   const query = new URLSearchParams(config.params).toString();
   const qs = query ? `?${query}` : "";
 
-  return `llm://${auth}${config.host}/${config.model}${qs}`;
+  return `llm://${auth}${host}/${config.model}${qs}`;
 }

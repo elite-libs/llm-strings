@@ -8,7 +8,96 @@ export type Provider =
   | "openrouter"
   | "vercel";
 
+export type HostAlias = Provider;
+
+type Env = Record<string, string | undefined>;
+
+declare const process:
+  | {
+      env?: Env;
+    }
+  | undefined;
+
+export const HOST_ALIASES: Record<HostAlias, string> = {
+  openai: "api.openai.com",
+  anthropic: "api.anthropic.com",
+  google: "generativelanguage.googleapis.com",
+  mistral: "api.mistral.ai",
+  cohere: "api.cohere.com",
+  bedrock: "bedrock-runtime.us-east-1.amazonaws.com",
+  openrouter: "openrouter.ai",
+  vercel: "gateway.ai.vercel.app",
+};
+
+export interface HostResolution {
+  /** The hostname/host to use for requests. */
+  host: string;
+  /** The provider alias that was expanded, if any. */
+  alias?: HostAlias;
+}
+
+function readProcessEnv(): Env {
+  return typeof process !== "undefined" && process.env ? process.env : {};
+}
+
+function normalizeHostValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+
+  try {
+    if (trimmed.includes("://")) {
+      return new URL(trimmed).host;
+    }
+  } catch {
+    // Fall through and treat it as a host-ish string.
+  }
+
+  return trimmed.replace(/^\/\//, "").split("/")[0] ?? trimmed;
+}
+
+function envHostOverride(alias: HostAlias, env: Env): string | undefined {
+  const upper = alias.toUpperCase();
+  const override =
+    env[`LLM_STRINGS_${upper}_HOST`] ?? env[`LLM_STRINGS_HOST_${upper}`];
+  return override?.trim() ? override : undefined;
+}
+
+/**
+ * Resolve short provider host aliases (`openai`, `anthropic`, etc.) to their
+ * canonical hostnames. Per-provider environment overrides can redirect aliases
+ * to regional or private endpoints:
+ *
+ * - `LLM_STRINGS_OPENAI_HOST`
+ * - `LLM_STRINGS_HOST_OPENAI`
+ */
+export function resolveHostAlias(
+  host: string,
+  env: Env = readProcessEnv(),
+): HostResolution {
+  const normalizedHost = host.toLowerCase();
+  if (!Object.hasOwn(HOST_ALIASES, normalizedHost)) {
+    return { host };
+  }
+
+  const alias = normalizedHost as HostAlias;
+  const override = envHostOverride(alias, env);
+  return {
+    host: normalizeHostValue(override ?? HOST_ALIASES[alias]),
+    alias,
+  };
+}
+
+export function providerFromHostAlias(alias: string): Provider | undefined {
+  const normalizedAlias = alias.toLowerCase();
+  if (Object.hasOwn(HOST_ALIASES, normalizedAlias)) {
+    return normalizedAlias as Provider;
+  }
+  return undefined;
+}
+
 export function detectProvider(host: string): Provider | undefined {
+  host = host.toLowerCase();
+
   // Gateways and aggregators first — they proxy to other providers
   if (host.includes("openrouter")) return "openrouter";
   if (host.includes("gateway.ai.vercel")) return "vercel";
@@ -205,11 +294,40 @@ export interface ParamSpec {
 
 export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
   openai: {
-    temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    top_p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    frequency_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop: { type: "string", description: "Stop sequences" },
     n: { type: "number", min: 1, default: 1, description: "Completions count" },
     seed: { type: "number", description: "Random seed" },
@@ -222,73 +340,288 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
     },
   },
   anthropic: {
-    temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    top_k: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    top_p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    top_k: {
+      type: "number",
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
     stop_sequences: { type: "string", description: "Stop sequences" },
     stream: { type: "boolean", default: false, description: "Stream response" },
-    effort: { type: "string", values: ["low", "medium", "high", "max"], default: "medium", description: "Thinking effort" },
-    cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
-    cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+    effort: {
+      type: "string",
+      values: ["low", "medium", "high", "max"],
+      default: "medium",
+      description: "Thinking effort",
+    },
+    cache_control: {
+      type: "string",
+      values: ["ephemeral"],
+      default: "ephemeral",
+      description: "Cache control",
+    },
+    cache_ttl: {
+      type: "string",
+      values: ["5m", "1h"],
+      default: "5m",
+      description: "Cache TTL",
+    },
   },
   google: {
-    temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    maxOutputTokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    topP: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    topK: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
-    frequencyPenalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presencePenalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    maxOutputTokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    topP: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    topK: {
+      type: "number",
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
+    frequencyPenalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presencePenalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stopSequences: { type: "string", description: "Stop sequences" },
-    candidateCount: { type: "number", min: 1, default: 1, description: "Candidate count" },
+    candidateCount: {
+      type: "number",
+      min: 1,
+      default: 1,
+      description: "Candidate count",
+    },
     stream: { type: "boolean", default: false, description: "Stream response" },
     seed: { type: "number", description: "Random seed" },
     responseMimeType: { type: "string", description: "Response MIME type" },
     responseSchema: { type: "string", description: "Response schema" },
   },
   mistral: {
-    temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    top_p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    frequency_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop: { type: "string", description: "Stop sequences" },
     n: { type: "number", min: 1, default: 1, description: "Completions count" },
     random_seed: { type: "number", description: "Random seed" },
     stream: { type: "boolean", default: false, description: "Stream response" },
-    safe_prompt: { type: "boolean", default: false, description: "Enable safe prompt" },
-    min_tokens: { type: "number", min: 0, default: 0, description: "Minimum tokens" },
+    safe_prompt: {
+      type: "boolean",
+      default: false,
+      description: "Enable safe prompt",
+    },
+    min_tokens: {
+      type: "number",
+      min: 0,
+      default: 0,
+      description: "Minimum tokens",
+    },
   },
   cohere: {
-    temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling (p)" },
-    k: { type: "number", min: 0, max: 500, default: 40, description: "Top-K sampling (k)" },
-    frequency_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling (p)",
+    },
+    k: {
+      type: "number",
+      min: 0,
+      max: 500,
+      default: 40,
+      description: "Top-K sampling (k)",
+    },
+    frequency_penalty: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop_sequences: { type: "string", description: "Stop sequences" },
     stream: { type: "boolean", default: false, description: "Stream response" },
     seed: { type: "number", description: "Random seed" },
   },
   bedrock: {
     // Converse API inferenceConfig params
-    temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-    maxTokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    topP: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    topK: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    maxTokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    topP: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    topK: {
+      type: "number",
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
     stopSequences: { type: "string", description: "Stop sequences" },
     stream: { type: "boolean", default: false, description: "Stream response" },
-    cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
-    cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+    cache_control: {
+      type: "string",
+      values: ["ephemeral"],
+      default: "ephemeral",
+      description: "Cache control",
+    },
+    cache_ttl: {
+      type: "string",
+      values: ["5m", "1h"],
+      default: "5m",
+      description: "Cache TTL",
+    },
   },
   openrouter: {
     // Loose validation — proxies to many providers with varying ranges
-    temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    top_k: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
-    frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    top_p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    top_k: {
+      type: "number",
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
+    frequency_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop: { type: "string", description: "Stop sequences" },
     n: { type: "number", min: 1, default: 1, description: "Completions count" },
     seed: { type: "number", description: "Random seed" },
@@ -302,12 +635,46 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
   },
   vercel: {
     // Loose validation — proxies to many providers with varying ranges
-    temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-    top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    top_k: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
-    frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number",
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    top_p: {
+      type: "number",
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    top_k: {
+      type: "number",
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
+    frequency_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number",
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop: { type: "string", description: "Stop sequences" },
     n: { type: "number", min: 1, default: 1, description: "Completions count" },
     seed: { type: "number", description: "Random seed" },
@@ -330,7 +697,9 @@ export function isReasoningModel(model: string): boolean {
 
 /** Providers that can route to OpenAI models (and need reasoning-model checks). */
 export function canHostOpenAIModels(provider: Provider): boolean {
-  return provider === "openai" || provider === "openrouter" || provider === "vercel";
+  return (
+    provider === "openai" || provider === "openrouter" || provider === "vercel"
+  );
 }
 
 /** Whether this provider is a gateway/router that proxies to other providers. */
@@ -343,13 +712,17 @@ export function isGatewayProvider(provider: Provider): boolean {
  * e.g. "anthropic/claude-sonnet-4-5" → "anthropic"
  * Returns undefined for unknown prefixes (qwen, deepseek, etc.) or models without "/".
  */
-export function detectGatewaySubProvider(
-  model: string,
-): Provider | undefined {
+export function detectGatewaySubProvider(model: string): Provider | undefined {
   const slash = model.indexOf("/");
   if (slash < 1) return undefined;
   const prefix = model.slice(0, slash);
-  const direct: Provider[] = ["openai", "anthropic", "google", "mistral", "cohere"];
+  const direct: Provider[] = [
+    "openai",
+    "anthropic",
+    "google",
+    "mistral",
+    "cohere",
+  ];
   return direct.find((p) => p === prefix);
 }
 

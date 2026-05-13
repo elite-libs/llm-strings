@@ -5,9 +5,11 @@ import {
   CANONICAL_PARAM_SPECS,
   PARAM_SPECS,
   PROVIDER_PARAMS,
+  HOST_ALIASES,
   detectProvider,
   detectGatewaySubProvider,
   isGatewayProvider,
+  resolveHostAlias,
 } from "./providers.js";
 import type { Provider } from "./providers.js";
 
@@ -43,6 +45,43 @@ describe("PROVIDER_META", () => {
     for (const meta of PROVIDER_META) {
       expect(detectProvider(meta.host)).toBe(meta.id);
     }
+  });
+});
+
+describe("host aliases", () => {
+  it("has an alias for every provider", () => {
+    for (const p of ALL_PROVIDERS) {
+      expect(HOST_ALIASES[p]).toBeTruthy();
+    }
+  });
+
+  it("resolves aliases to canonical hosts", () => {
+    expect(resolveHostAlias("openai")).toEqual({
+      host: "api.openai.com",
+      alias: "openai",
+    });
+    expect(resolveHostAlias("anthropic")).toEqual({
+      host: "api.anthropic.com",
+      alias: "anthropic",
+    });
+  });
+
+  it("resolves aliases with explicit env overrides", () => {
+    expect(
+      resolveHostAlias("bedrock", {
+        LLM_STRINGS_BEDROCK_HOST:
+          "https://bedrock-runtime.us-west-2.amazonaws.com/model",
+      }),
+    ).toEqual({
+      host: "bedrock-runtime.us-west-2.amazonaws.com",
+      alias: "bedrock",
+    });
+  });
+
+  it("passes through non-alias hosts", () => {
+    expect(resolveHostAlias("custom-api.example.com")).toEqual({
+      host: "custom-api.example.com",
+    });
   });
 });
 
@@ -112,16 +151,14 @@ describe("CANONICAL_PARAM_SPECS", () => {
         const pSpec = PARAM_SPECS[p][providerName];
         if (!pSpec) continue;
         if (cSpec.min !== undefined) {
-          expect(
-            cSpec.min,
-            `${p}.${canonicalName} min mismatch`,
-          ).toBe(pSpec.min);
+          expect(cSpec.min, `${p}.${canonicalName} min mismatch`).toBe(
+            pSpec.min,
+          );
         }
         if (cSpec.max !== undefined) {
-          expect(
-            cSpec.max,
-            `${p}.${canonicalName} max mismatch`,
-          ).toBe(pSpec.max);
+          expect(cSpec.max, `${p}.${canonicalName} max mismatch`).toBe(
+            pSpec.max,
+          );
         }
       }
     }
@@ -158,9 +195,13 @@ describe("isGatewayProvider", () => {
 describe("detectGatewaySubProvider", () => {
   it("detects known sub-providers from model prefix", () => {
     expect(detectGatewaySubProvider("openai/gpt-5.2")).toBe("openai");
-    expect(detectGatewaySubProvider("anthropic/claude-sonnet-4-5")).toBe("anthropic");
+    expect(detectGatewaySubProvider("anthropic/claude-sonnet-4-5")).toBe(
+      "anthropic",
+    );
     expect(detectGatewaySubProvider("google/gemini-2.5-pro")).toBe("google");
-    expect(detectGatewaySubProvider("mistral/mistral-large-latest")).toBe("mistral");
+    expect(detectGatewaySubProvider("mistral/mistral-large-latest")).toBe(
+      "mistral",
+    );
     expect(detectGatewaySubProvider("cohere/command-r-plus")).toBe("cohere");
   });
 
