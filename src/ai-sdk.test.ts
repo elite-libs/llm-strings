@@ -14,6 +14,18 @@ describe("createAiSdkProviderOptions", () => {
     });
   });
 
+  it("parses connection strings directly", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      "llm://api.openai.com/o3?effort=high",
+    );
+
+    expect(result.providerOptions).toEqual({
+      openai: { reasoningEffort: "high" },
+    });
+  });
+
   it("maps Anthropic cache and effort options", async () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 

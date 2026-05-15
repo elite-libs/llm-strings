@@ -213,12 +213,10 @@ The AI SDK adapter is available as a separate subpath so you can load it only
 where you need it:
 
 ```ts
-import { parse } from "llm-strings";
-
 const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
 
 const { providerOptions } = createAiSdkProviderOptions(
-  parse("llm://api.anthropic.com/claude-sonnet-4-5?cache=1h&effort=max"),
+  "llm://api.anthropic.com/claude-sonnet-4-5?cache=1h&effort=max",
 );
 
 // {

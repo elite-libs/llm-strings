@@ -1,5 +1,6 @@
 import { normalize } from "./normalize.js";
 import type { NormalizeOptions, NormalizeResult } from "./normalize.js";
+import { parse } from "./parse.js";
 import type { LlmConnectionConfig } from "./parse.js";
 import type { Provider } from "./provider-core.js";
 
@@ -18,6 +19,11 @@ export interface AiSdkProviderOptionsOptions extends NormalizeOptions {
    */
   includeGatewayOptions?: boolean;
 }
+
+export type AiSdkProviderOptionsInput =
+  | string
+  | LlmConnectionConfig
+  | NormalizeResult;
 
 type ProviderOptionsKey = Provider | "gateway";
 
@@ -588,11 +594,13 @@ function addProviderSpecificOption(
  * provider-specific AI SDK options under the correct provider key.
  */
 export function createAiSdkProviderOptions(
-  configOrResult: LlmConnectionConfig | NormalizeResult,
+  configOrResult: AiSdkProviderOptionsInput,
   options: AiSdkProviderOptionsOptions = {},
 ): AiSdkProviderOptionsResult {
   const normalized =
-    "changes" in configOrResult && "subProvider" in configOrResult
+    typeof configOrResult === "string"
+      ? normalize(parse(configOrResult), options)
+      : "changes" in configOrResult && "subProvider" in configOrResult
       ? configOrResult
       : normalize(configOrResult, options);
   const providerOptions: AiSdkProviderOptions = {};
