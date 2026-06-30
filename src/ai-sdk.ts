@@ -25,17 +25,45 @@ export type AiSdkProviderOptionsInput =
   | LlmConnectionConfig
   | NormalizeResult;
 
-type ProviderOptionsKey = Provider | "gateway";
+type ProviderOptionsKey = Provider | "gateway" | "vertex" | "blackForestLabs";
 
 const PROVIDER_OPTION_KEYS: Record<Provider, ProviderOptionsKey> = {
   openai: "openai",
+  azure: "azure",
   anthropic: "anthropic",
   google: "google",
+  "google-vertex": "vertex",
   mistral: "mistral",
   cohere: "cohere",
   bedrock: "bedrock",
   openrouter: "openrouter",
   vercel: "gateway",
+  xai: "xai",
+  groq: "groq",
+  fal: "fal",
+  deepinfra: "deepinfra",
+  "black-forest-labs": "blackForestLabs",
+  together: "together",
+  fireworks: "fireworks",
+  deepseek: "deepseek",
+  moonshotai: "moonshotai",
+  perplexity: "perplexity",
+  alibaba: "alibaba",
+  cerebras: "cerebras",
+  replicate: "replicate",
+  prodia: "prodia",
+  luma: "luma",
+  bytedance: "bytedance",
+  kling: "kling",
+  elevenlabs: "elevenlabs",
+  assemblyai: "assemblyai",
+  deepgram: "deepgram",
+  gladia: "gladia",
+  lmnt: "lmnt",
+  hume: "hume",
+  revai: "revai",
+  baseten: "baseten",
+  huggingface: "huggingface",
 };
 
 const TRUE_VALUES = new Set(["true", "1", "yes", "on"]);
@@ -116,8 +144,8 @@ function addOpenAiOption(
   options: AiSdkProviderOptions,
   key: string,
   value: string,
+  target: ProviderOptionsKey = "openai",
 ): void {
-  const target: ProviderOptionsKey = "openai";
   const mappings: Record<string, string> = {
     reasoning_effort: "reasoningEffort",
     max_completion_tokens: "maxCompletionTokens",
@@ -257,9 +285,8 @@ function addGoogleOption(
   options: AiSdkProviderOptions,
   key: string,
   value: string,
+  target: ProviderOptionsKey = "google",
 ): void {
-  const target: ProviderOptionsKey = "google";
-
   if (
     key === "thinking_budget" ||
     key === "thinking_level" ||
@@ -565,6 +592,15 @@ function addOpenRouterOption(
   }
 }
 
+function addFlexibleProviderOption(
+  options: AiSdkProviderOptions,
+  target: ProviderOptionsKey,
+  key: string,
+  value: string,
+): void {
+  setProviderOption(options, target, key, typedValue(value));
+}
+
 function addProviderSpecificOption(
   options: AiSdkProviderOptions,
   provider: Provider,
@@ -578,12 +614,59 @@ function addProviderSpecificOption(
   }
 
   if (provider === "openai") addOpenAiOption(options, key, value);
+  if (provider === "azure") addOpenAiOption(options, key, value, "azure");
   if (provider === "anthropic") addAnthropicOption(options, key, value);
   if (provider === "google") addGoogleOption(options, key, value);
+  if (provider === "google-vertex")
+    addGoogleOption(options, key, value, "vertex");
   if (provider === "mistral") addMistralOption(options, key, value);
   if (provider === "cohere") addCohereOption(options, key, value);
   if (provider === "bedrock") addBedrockOption(options, key, value);
   if (provider === "openrouter") addOpenRouterOption(options, key, value);
+  if (provider === "xai") addOpenAiOption(options, key, value, "xai");
+  if (provider === "groq") addOpenAiOption(options, key, value, "groq");
+  if (provider === "fal") addFlexibleProviderOption(options, "fal", key, value);
+  if (provider === "deepinfra")
+    addOpenAiOption(options, key, value, "deepinfra");
+  if (provider === "black-forest-labs")
+    addFlexibleProviderOption(options, "blackForestLabs", key, value);
+  if (provider === "together") addOpenAiOption(options, key, value, "together");
+  if (provider === "fireworks")
+    addOpenAiOption(options, key, value, "fireworks");
+  if (provider === "deepseek") addOpenAiOption(options, key, value, "deepseek");
+  if (provider === "moonshotai")
+    addOpenAiOption(options, key, value, "moonshotai");
+  if (provider === "perplexity")
+    addOpenAiOption(options, key, value, "perplexity");
+  if (provider === "alibaba") addOpenAiOption(options, key, value, "alibaba");
+  if (provider === "cerebras") addOpenAiOption(options, key, value, "cerebras");
+  if (provider === "replicate")
+    addFlexibleProviderOption(options, "replicate", key, value);
+  if (provider === "prodia")
+    addFlexibleProviderOption(options, "prodia", key, value);
+  if (provider === "luma")
+    addFlexibleProviderOption(options, "luma", key, value);
+  if (provider === "bytedance")
+    addFlexibleProviderOption(options, "bytedance", key, value);
+  if (provider === "kling")
+    addFlexibleProviderOption(options, "kling", key, value);
+  if (provider === "elevenlabs")
+    addFlexibleProviderOption(options, "elevenlabs", key, value);
+  if (provider === "assemblyai")
+    addFlexibleProviderOption(options, "assemblyai", key, value);
+  if (provider === "deepgram")
+    addFlexibleProviderOption(options, "deepgram", key, value);
+  if (provider === "gladia")
+    addFlexibleProviderOption(options, "gladia", key, value);
+  if (provider === "lmnt")
+    addFlexibleProviderOption(options, "lmnt", key, value);
+  if (provider === "hume")
+    addFlexibleProviderOption(options, "hume", key, value);
+  if (provider === "revai")
+    addFlexibleProviderOption(options, "revai", key, value);
+  if (provider === "baseten") addOpenAiOption(options, key, value, "baseten");
+  if (provider === "huggingface")
+    addOpenAiOption(options, key, value, "huggingface");
 }
 
 /**
@@ -601,8 +684,8 @@ export function createAiSdkProviderOptions(
     typeof configOrResult === "string"
       ? normalize(parse(configOrResult), options)
       : "changes" in configOrResult && "subProvider" in configOrResult
-      ? configOrResult
-      : normalize(configOrResult, options);
+        ? configOrResult
+        : normalize(configOrResult, options);
   const providerOptions: AiSdkProviderOptions = {};
 
   if (!normalized.provider) {

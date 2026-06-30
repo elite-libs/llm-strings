@@ -99,6 +99,56 @@ describe("createAiSdkProviderOptions", () => {
     });
   });
 
+  it("uses xai as the providerOptions key for xAI aliases", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions("llm://grok/grok-4?effort=high");
+
+    expect(result.provider).toBe("xai");
+    expect(result.providerOptions).toEqual({
+      xai: { reasoningEffort: "high" },
+    });
+  });
+
+  it("uses vertex as the providerOptions key for Google Vertex", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      'llm://vertex/gemini-2.5-pro?safety_settings={"threshold":"BLOCK_LOW_AND_ABOVE"}',
+    );
+
+    expect(result.provider).toBe("google-vertex");
+    expect(result.providerOptions).toEqual({
+      vertex: { safetySettings: { threshold: "BLOCK_LOW_AND_ABOVE" } },
+    });
+  });
+
+  it("passes flexible Fal providerOptions through", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      "llm://fal/fal-ai/flux-pro?image_size=square_hd&num_images=2",
+    );
+
+    expect(result.provider).toBe("fal");
+    expect(result.providerOptions).toEqual({
+      fal: { image_size: "square_hd", num_images: 2 },
+    });
+  });
+
+  it("uses blackForestLabs as the providerOptions key for Black Forest Labs", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      "llm://bfl/flux-pro-1.1?output_format=jpeg",
+    );
+
+    expect(result.provider).toBe("black-forest-labs");
+    expect(result.providerOptions).toEqual({
+      blackForestLabs: { output_format: "jpeg" },
+    });
+  });
+
   it("maps OpenRouter reasoning effort into its nested reasoning option", async () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 
