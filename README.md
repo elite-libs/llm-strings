@@ -466,7 +466,6 @@ Returns `true` if the Bedrock model supports prompt caching (Claude and Nova mod
 | `PARAM_SPECS`                 | Validation rules (type, min/max, enum) per provider, keyed by provider-specific param name |
 | `REASONING_MODEL_UNSUPPORTED` | Set of canonical params unsupported by reasoning models                                    |
 | `PROVIDER_META`               | Array of provider metadata (id, name, host, brand color) for UI integrations               |
-| `MODELS`                      | Suggested model IDs per provider                                                           |
 | `CANONICAL_PARAM_SPECS`       | Canonical param specs per provider with descriptions — useful for building UIs             |
 
 ## TypeScript
@@ -496,24 +495,16 @@ import type {
 
 ## Provider Metadata (for UI integrations)
 
-The library exports metadata useful for building UIs — provider names, brand colors, suggested models, and canonical parameter specs:
+The library exports metadata useful for building UIs — provider names, brand colors, and canonical parameter specs:
 
 ```ts
-import {
-  PROVIDER_META,
-  MODELS,
-  CANONICAL_PARAM_SPECS,
-} from "llm-strings/providers";
+import { PROVIDER_META, CANONICAL_PARAM_SPECS } from "llm-strings/providers";
 
 // Provider display info
 PROVIDER_META.forEach((p) => console.log(`${p.name}: ${p.host} (${p.color})`));
 // OpenAI: api.openai.com (#10a37f)
 // Anthropic: api.anthropic.com (#e8956a)
 // ...
-
-// Suggested models per provider
-MODELS.openai; // → ["gpt-5.2", "gpt-5.2-pro", "gpt-4.1", "gpt-4.1-mini", ...]
-MODELS.anthropic; // → ["claude-opus-4-6", "claude-sonnet-4-6", "claude-sonnet-4-5", ...]
 
 // Canonical param specs — useful for building config forms
 CANONICAL_PARAM_SPECS.openai.temperature;

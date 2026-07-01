@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   PROVIDER_META,
-  MODELS,
   CANONICAL_PARAM_SPECS,
   PARAM_SPECS,
   PROVIDER_PARAMS,
@@ -144,15 +143,6 @@ describe("host aliases", () => {
     expect(resolveHostAlias("custom-api.example.com")).toEqual({
       host: "custom-api.example.com",
     });
-  });
-});
-
-describe("MODELS", () => {
-  it("has entries for every provider", () => {
-    for (const p of ALL_PROVIDERS) {
-      expect(MODELS[p]).toBeDefined();
-      expect(MODELS[p].length).toBeGreaterThan(0);
-    }
   });
 });
 
