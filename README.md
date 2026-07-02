@@ -8,25 +8,47 @@
 [![License](https://img.shields.io/npm/l/llm-strings.svg)](https://github.com/justsml/llm-strings/blob/main/LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue.svg)](https://www.typescriptlang.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](https://www.npmjs.com/package/llm-strings)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org/)
+
+**Parse, normalize, validate, and build portable `llm://` URLs across AI providers.**
+
+[Install](#install) · [Quick Start](#quick-start) · [Examples](#examples) · [Supported Providers](#supported-providers) · [API](#api-reference)
 
 </div>
 
 ---
 
-![the parts of a LLM connection string](./assets/inline-url-diagram-dark.svg)
+![The parts of an LLM connection string](./assets/inline-url-diagram-dark.svg)
 
 ```ini
-llm://api.openai.com/gpt-5.2?temp=0.7&max=2000
-llm://my-app:sk-key-123@api.anthropic.com/claude-sonnet-4-5?cache=5m
-llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5
 llm://openai/gpt-5.2?temp=0.7&max=2000
+llm://anthropic/claude-sonnet-4-5?cache=5m&effort=max
+llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096
+llm://openrouter/anthropic/claude-sonnet-4-5?temp=0.7&max=2000
 ```
 
-Every LLM provider invented their own parameter names. `max_tokens` vs `maxOutputTokens` vs `maxTokens`. `top_p` vs `topP` vs `p`. `stop` vs `stop_sequences` vs `stopSequences`. You write the config once, then rewrite it for every provider.
+Every LLM provider invented slightly different names for the same knobs:
+`max_tokens` vs `maxOutputTokens` vs `maxTokens`, `top_p` vs `topP` vs `p`,
+`stop` vs `stop_sequences` vs `stopSequences`.
 
-**llm-strings** gives you a single, portable format. Parse it, normalize it to any provider's API, and validate it — all in one library with zero dependencies.
+**llm-strings** gives you one portable format for model configuration. Put the
+whole config in an env var, normalize it to the provider's API shape, validate
+it before you spend tokens, and build UI controls from the same metadata.
 
-Based on the [LLM Connection Strings](https://danlevy.net/llm-connection-strings/) article by Dan Levy. See [draft IETF RFC for `llm://`](https://datatracker.ietf.org/doc/html/draft-levy-llm-uri-scheme-00).
+Based on the [LLM Connection Strings](https://danlevy.net/llm-connection-strings/)
+proposal by Dan Levy. See the [draft IETF RFC for `llm://`](https://datatracker.ietf.org/doc/html/draft-levy-llm-uri-scheme-00).
+
+## Why developers use it
+
+- **One config string** for host, model, credentials, and generation params.
+- **Provider-native output** from provider-agnostic input like `temp=0.7&max=2000`.
+- **Early validation** for ranges, unsupported params, mutual exclusions, Bedrock
+  model-family rules, and OpenAI reasoning-model restrictions.
+- **Short aliases** like `openai`, `anthropic`, `google`, `bedrock`, `groq`, and
+  `openrouter`, with env overrides for private or regional endpoints.
+- **AI SDK providerOptions** generation for provider-specific settings.
+- **Zero runtime dependencies**, ESM + CJS, full TypeScript declarations, and
+  sub-path imports for smaller bundles.
 
 ## Install
 
@@ -34,65 +56,55 @@ Based on the [LLM Connection Strings](https://danlevy.net/llm-connection-strings
 npm install llm-strings
 ```
 
+```bash
+pnpm add llm-strings
+```
+
+```bash
+yarn add llm-strings
+```
+
+```bash
+bun add llm-strings
+```
+
 ## Quick Start
 
 ```ts
-import { parse, normalize, validate, build } from "llm-strings";
+import { build, normalize, parse, validate } from "llm-strings";
 
-// Parse a connection string into structured config
-const config = parse("llm://api.openai.com/gpt-5.2?temp=0.7&max=2000");
-// → { host: "api.openai.com", model: "gpt-5.2", params: { temp: "0.7", max: "2000" } }
+const input = "llm://openai/gpt-5.2?temp=0.7&max=2000&topp=0.9";
 
-// Normalize aliases and map to the provider's actual API param names
-const { config: normalized, provider } = normalize(config);
-// → params: { temperature: "0.7", max_tokens: "2000" }, provider: "openai"
+const parsed = parse(input);
+// {
+//   raw: "llm://openai/gpt-5.2?temp=0.7&max=2000&topp=0.9",
+//   host: "api.openai.com",
+//   hostAlias: "openai",
+//   model: "gpt-5.2",
+//   params: { temp: "0.7", max: "2000", topp: "0.9" }
+// }
 
-// Validate against provider specs (returns [] if valid)
-const issues = validate("llm://api.openai.com/gpt-5.2?temp=3.0");
-// → [{ param: "temperature", message: '"temperature" must be <= 2, got 3', severity: "error" }]
+const { config, provider } = normalize(parsed);
+// provider: "openai"
+// config.params: { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
 
-// Build a connection string from a config object
-const str = build({
-  host: "api.openai.com",
-  model: "gpt-5.2",
-  params: { temperature: "0.7" },
+const issues = validate("llm://anthropic/claude-sonnet-4-5?temp=0.7&top_p=0.9");
+// [
+//   {
+//     param: "temperature",
+//     value: "0.7",
+//     severity: "error",
+//     message: "Cannot specify both \"temperature\" and \"top_p\" for Anthropic models."
+//   }
+// ]
+
+const url = build({
+  host: "anthropic",
+  model: "claude-sonnet-4-5",
+  params: { temp: "0.7", max: "4096" },
 });
-// → "llm://api.openai.com/gpt-5.2?temperature=0.7"
+// "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&max=4096"
 ```
-
-## Why Connection Strings?
-
-You already use them for databases: `postgres://user:pass@host/db`. They're compact, portable, and easy to pass through environment variables. LLM configs deserve the same treatment.
-
-**Store your entire model config in one env var:**
-
-```bash
-LLM_URL="llm://my-app:sk-proj-abc123@api.openai.com/gpt-5.2?temp=0.7&max=2000"
-```
-
-**Switch providers by changing a string, not refactoring code:**
-
-```bash
-# Monday: OpenAI
-LLM_URL="llm://api.openai.com/gpt-5.2?temp=0.7&max=2000"
-
-# Tuesday: Anthropic
-LLM_URL="llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&max=2000"
-
-# Wednesday: Bedrock in production
-LLM_URL="llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.7&max=2000"
-```
-
-Your code stays the same. `normalize()` handles the parameter translation.
-
-## Benefits
-
-- **One format, every provider** — Write `temp=0.7&max=2000` once. Normalization maps it to `temperature`, `max_tokens`, `maxOutputTokens`, `maxTokens`, or whatever your provider calls it.
-- **Catch mistakes early** — `validate()` checks types, ranges, and provider-specific rules before you burn tokens on a bad request.
-- **Zero dependencies** — Pure TypeScript. No runtime baggage.
-- **Portable config** — Fits in an env var, a CLI flag, a config file, or a database column.
-- **Shorthand aliases** — Use `temp`, `max`, `topp`, `freq`, `pres` — they all expand to the right thing.
-- **Short host aliases** — Use `llm://openai/...`, `llm://anthropic/...`, `llm://bedrock/...`, etc. Env overrides can redirect aliases to regional or private endpoints.
 
 ## Format
 
@@ -100,98 +112,31 @@ Your code stays the same. `normalize()` handles the parameter translation.
 llm://[label[:apiKey]@]host/model[?params]
 ```
 
-| Part     | Required | Description                        | Example                    |
-| -------- | -------- | ---------------------------------- | -------------------------- |
-| `label`  | No       | App name or identifier             | `my-app`                   |
-| `apiKey` | No       | API key (in the password position) | `sk-proj-abc123`           |
-| `host`   | Yes      | Provider's API host or short alias | `api.openai.com`, `openai` |
-| `model`  | Yes      | Model name or ID                   | `gpt-5.2`                  |
-| `params` | No       | Key-value config (query string)    | `temp=0.7&max=2000`        |
+| Part     | Required | Description                       | Example                    |
+| -------- | -------- | --------------------------------- | -------------------------- |
+| `label`  | No       | App name or environment label     | `worker`                   |
+| `apiKey` | No       | API key in the password position  | `sk-proj-abc123`           |
+| `host`   | Yes      | Provider host or short alias      | `api.openai.com`, `openai` |
+| `model`  | Yes      | Model name, route, or provider ID | `gpt-5.2`                  |
+| `params` | No       | Query-string generation settings  | `temp=0.7&max=2000`        |
+
+Connection strings can include secrets, so treat values containing `apiKey` like
+credentials: store them in secret managers or env vars, and avoid logging them.
 
 ## Examples
 
-### Switching between providers
+### One env var for your model config
 
-Write portable params, let `normalize()` translate them:
-
-```ts
-import { parse, normalize } from "llm-strings";
-
-// Same logical config, different providers
-const strings = [
-  "llm://api.openai.com/gpt-5.2?temp=0.7&max=2000&top_p=0.9",
-  "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&max=2000&top_p=0.9",
-  "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?temp=0.7&max=2000&top_p=0.9",
-];
-
-for (const str of strings) {
-  const { config, provider } = normalize(parse(str));
-  console.log(`${provider}:`, config.params);
-}
-// openai:    { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
-// anthropic: { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
-// google:    { temperature: "0.7", maxOutputTokens: "2000", topP: "0.9" }
-```
-
-### Short host aliases
-
-Provider IDs can be used as short hostnames:
-
-```ts
-import { parse, normalize } from "llm-strings";
-
-const { config, provider } = normalize(parse("llm://openai/gpt-5.2?temp=0.7"));
-
-config.host; // "api.openai.com"
-provider; // "openai"
-```
-
-Built-in aliases: `openai`, `anthropic`, `google`, `mistral`, `cohere`, `bedrock`, `openrouter`, `vercel`.
-
-Set env overrides to point an alias at a regional or private endpoint:
-
-```sh
-LLM_STRINGS_OPENAI_HOST="regional.openai.example.com"
-LLM_STRINGS_BEDROCK_HOST="bedrock-runtime.us-west-2.amazonaws.com"
-```
-
-The alternate form `LLM_STRINGS_HOST_OPENAI` is also supported. Overrides may include a scheme or path; only the host portion is used.
-
-### Validating before calling the API
-
-Catch bad config before it hits the network:
-
-```ts
-import { validate } from "llm-strings";
-
-// Anthropic doesn't allow temperature + top_p together
-const issues = validate(
-  "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&top_p=0.9",
-);
-
-for (const issue of issues) {
-  console.error(`[${issue.severity}] ${issue.param}: ${issue.message}`);
-}
-// [error] temperature: Cannot specify both "temperature" and "top_p" for Anthropic models.
+```bash
+LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-5.2?temp=0.7&max=2000"
 ```
 
 ```ts
-// OpenAI reasoning models have different rules
-const issues = validate("llm://api.openai.com/o3?temp=0.7&max=2000");
-// [error] temperature: "temperature" is not supported by OpenAI reasoning model "o3".
-//         Use "reasoning_effort" instead of temperature for controlling output.
-```
+import { normalize, parse } from "llm-strings";
 
-### Environment-driven config
-
-```ts
-import { parse, normalize } from "llm-strings";
-
-// One env var holds the entire config
 const { config, provider } = normalize(parse(process.env.LLM_URL!));
 
-// Use the normalized params directly in your API call
-const response = await fetch(`https://${config.host}/v1/chat/completions`, {
+await fetch(`https://${config.host}/v1/chat/completions`, {
   method: "POST",
   headers: {
     Authorization: `Bearer ${config.apiKey}`,
@@ -201,22 +146,119 @@ const response = await fetch(`https://${config.host}/v1/chat/completions`, {
     model: config.model,
     messages: [{ role: "user", content: "Hello!" }],
     ...Object.fromEntries(
-      Object.entries(config.params).map(([k, v]) => [k, isNaN(+v) ? v : +v]),
+      Object.entries(config.params).map(([key, value]) => [
+        key,
+        Number.isNaN(Number(value)) ? value : Number(value),
+      ]),
     ),
   }),
 });
+
+console.log(provider); // "openai"
 ```
 
-### AI SDK providerOptions
+### Switch providers without changing app code
 
-The AI SDK adapter is available as a separate subpath so you can load it only
-where you need it:
+```bash
+# OpenAI
+LLM_URL="llm://openai/gpt-5.2?temp=0.7&max=2000&top_p=0.9"
+
+# Anthropic
+LLM_URL="llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000&top_p=0.9"
+
+# Google
+LLM_URL="llm://google/gemini-3-flash-preview?temp=0.7&max=2000&top_p=0.9"
+
+# Bedrock
+LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.7&max=2000"
+```
+
+```ts
+import { normalize, parse } from "llm-strings";
+
+for (const value of [
+  "llm://openai/gpt-5.2?temp=0.7&max=2000&top_p=0.9",
+  "llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000&top_p=0.9",
+  "llm://google/gemini-3-flash-preview?temp=0.7&max=2000&top_p=0.9",
+]) {
+  const { config, provider } = normalize(parse(value));
+  console.log(provider, config.params);
+}
+
+// openai    { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
+// anthropic { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
+// google    { temperature: "0.7", maxOutputTokens: "2000", topP: "0.9" }
+```
+
+### Resolve short host aliases
+
+```ts
+import { normalize, parse } from "llm-strings";
+
+const { config, provider } = normalize(
+  parse("llm://groq/llama-3.3-70b?max=1000"),
+);
+
+config.host; // "api.groq.com"
+provider; // "groq"
+```
+
+Override any alias at deploy time:
+
+```bash
+LLM_STRINGS_OPENAI_HOST="regional.openai.example.com"
+LLM_STRINGS_BEDROCK_HOST="https://bedrock-runtime.us-west-2.amazonaws.com/model"
+```
+
+The alternate form `LLM_STRINGS_HOST_OPENAI` is also supported. Overrides may
+include a scheme or path; only the host portion is used.
+
+### Validate before calling the provider
+
+```ts
+import { validate } from "llm-strings";
+
+validate("llm://openai/gpt-5.2?temp=3.0");
+// [{ param: "temperature", message: "\"temperature\" must be <= 2, got 3", ... }]
+
+validate("llm://openai/o3?temp=0.7&max=2000");
+// [{ param: "temperature", message: "\"temperature\" is not supported by OpenAI reasoning model \"o3\"...", ... }]
+
+validate("llm://custom-api.example.com/model?temp=0.7", { strict: true });
+// [{ param: "host", severity: "error", message: "Unknown provider..." }]
+```
+
+### See exactly what changed
+
+```ts
+import { normalize, parse } from "llm-strings";
+
+const { changes } = normalize(
+  parse("llm://google/gemini-3-flash-preview?temp=0.7&max=2000&topp=0.9"),
+  { verbose: true },
+);
+
+for (const change of changes) {
+  console.log(`${change.from} -> ${change.to} (${change.reason})`);
+}
+
+// temp -> temperature (alias: "temp" -> "temperature")
+// max -> max_tokens (alias: "max" -> "max_tokens")
+// max_tokens -> maxOutputTokens (google uses "maxOutputTokens" instead of "max_tokens")
+// topp -> top_p (alias: "topp" -> "top_p")
+// top_p -> topP (google uses "topP" instead of "top_p")
+```
+
+### Build AI SDK providerOptions
+
+The AI SDK adapter lives on a separate sub-path so you only load it when you
+need it:
 
 ```ts
 const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
 
 const { providerOptions } = createAiSdkProviderOptions(
-  "llm://api.anthropic.com/claude-sonnet-4-5?cache=1h&effort=max",
+  "llm://anthropic/claude-sonnet-4-5?cache=1h&effort=max",
 );
 
 // {
@@ -227,130 +269,88 @@ const { providerOptions } = createAiSdkProviderOptions(
 // }
 ```
 
-Common generation settings like `temperature`, `topP`, and `maxOutputTokens`
-belong on the AI SDK call itself, so this helper only emits provider-specific
-configuration such as Anthropic cache control, Bedrock cache points, OpenAI
-reasoning options, Mistral `safePrompt`, OpenRouter reasoning, and Vercel AI
-Gateway routing options.
+Common generation settings like temperature, top-p, and max output tokens
+belong on the AI SDK call itself. The helper emits provider-specific options
+such as Anthropic cache control, Bedrock cache points, OpenAI reasoning options,
+Mistral `safePrompt`, OpenRouter routing, and Vercel AI Gateway routing.
 
-### Prompt caching (Anthropic & Bedrock)
-
-```ts
-import { parse, normalize } from "llm-strings";
-
-// cache=true → cache_control=ephemeral
-const { config } = normalize(
-  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=true"),
-);
-// → params: { max_tokens: "4096", cache_control: "ephemeral" }
-
-// cache=5m → cache_control=ephemeral + cache_ttl=5m
-const { config: withTtl } = normalize(
-  parse("llm://api.anthropic.com/claude-sonnet-4-5?max=4096&cache=5m"),
-);
-// → params: { max_tokens: "4096", cache_control: "ephemeral", cache_ttl: "5m" }
-
-// Works on Bedrock too (Claude and Nova models)
-const { config: bedrock } = normalize(
-  parse(
-    "llm://bedrock-runtime.us-east-1.amazonaws.com/anthropic.claude-sonnet-4-5-20250929-v1:0?cache=1h",
-  ),
-);
-// → params: { cache_control: "ephemeral", cache_ttl: "1h" }
-```
-
-### Debugging normalization
-
-Use verbose mode to see exactly what was transformed:
+### Build provider-aware UIs
 
 ```ts
-import { parse, normalize } from "llm-strings";
+import { CANONICAL_PARAM_SPECS, PROVIDER_META } from "llm-strings/providers";
 
-const { changes } = normalize(
-  parse(
-    "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?temp=0.7&max=2000&topp=0.9",
-  ),
-  { verbose: true },
-);
+PROVIDER_META.map(({ id, name, host, color }) => ({ id, name, host, color }));
+// [{ id: "openai", name: "OpenAI", host: "api.openai.com", color: "#10a37f" }, ...]
 
-for (const c of changes) {
-  console.log(`${c.from} → ${c.to} (${c.reason})`);
-}
-// temp → temperature            (alias: "temp" → "temperature")
-// max → max_tokens              (alias: "max" → "max_tokens")
-// max_tokens → maxOutputTokens  (google uses "maxOutputTokens" instead of "max_tokens")
-// topp → top_p                  (alias: "topp" → "top_p")
-// top_p → topP                  (google uses "topP" instead of "top_p")
-```
-
-### Building connection strings programmatically
-
-```ts
-import { build } from "llm-strings";
-
-const url = build({
-  host: "api.openai.com",
-  model: "gpt-5.2",
-  label: "my-app",
-  apiKey: "sk-proj-abc123",
-  params: { temperature: "0.7", max_tokens: "2000", stream: "true" },
-});
-// → "llm://my-app:sk-proj-abc123@api.openai.com/gpt-5.2?temperature=0.7&max_tokens=2000&stream=true"
-```
-
-### AWS Bedrock with cross-region inference
-
-```ts
-import { parse, normalize } from "llm-strings";
-import { detectBedrockModelFamily } from "llm-strings/providers";
-
-const config = parse(
-  "llm://bedrock-runtime.us-east-1.amazonaws.com/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096",
-);
-
-detectBedrockModelFamily(config.model);
-// → "anthropic"
-
-const { config: normalized } = normalize(config);
-// → params: { temperature: "0.5", maxTokens: "4096" }
-//   (Bedrock Converse API uses camelCase)
-```
-
-### Gateway providers (OpenRouter, Vercel)
-
-```ts
-import { parse, normalize, validate } from "llm-strings";
-
-// OpenRouter proxies to any provider
-const { config } = normalize(
-  parse("llm://openrouter.ai/anthropic/claude-sonnet-4-5?temp=0.7&max=2000"),
-);
-// → params: { temperature: "0.7", max_tokens: "2000" }
-
-// Reasoning model restrictions apply even through gateways
-const issues = validate("llm://openrouter.ai/openai/o3?temp=0.7");
-// → [{ param: "temperature", severity: "error",
-//      message: "...not supported by OpenAI reasoning model..." }]
+CANONICAL_PARAM_SPECS.anthropic.temperature;
+// {
+//   type: "number",
+//   min: 0,
+//   max: 1,
+//   default: 0.7,
+//   description: "Controls randomness"
+// }
 ```
 
 ## Supported Providers
 
-| Provider    | Host Pattern                             | Param Style |
-| ----------- | ---------------------------------------- | ----------- |
-| OpenAI      | `api.openai.com`                         | snake_case  |
-| Anthropic   | `api.anthropic.com`                      | snake_case  |
-| Google      | `generativelanguage.googleapis.com`      | camelCase   |
-| Mistral     | `api.mistral.ai`                         | snake_case  |
-| Cohere      | `api.cohere.com`                         | snake_case  |
-| AWS Bedrock | `bedrock-runtime.{region}.amazonaws.com` | camelCase   |
-| OpenRouter  | `openrouter.ai`                          | snake_case  |
-| Vercel AI   | `gateway.ai.vercel.app`                  | snake_case  |
+`llm-strings` ships provider detection, host aliases, metadata, and parameter
+normalization for the major LLM provider shapes. Chat-compatible providers get
+canonical parameter mapping and validation; media and audio providers are
+available for detection, metadata, aliases, and flexible AI SDK providerOptions.
 
-Gateways like OpenRouter and Vercel route to any upstream provider. Bedrock hosts models from multiple families (Anthropic, Meta, Amazon, Mistral, Cohere, AI21) with cross-region inference support. Each provider's parameter names differ — normalization handles the translation automatically.
+| Category                    | Providers                                                                                                                                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Core chat + reasoning       | OpenAI, Azure OpenAI, Anthropic, Google AI Studio, Google Vertex AI, Mistral, Cohere, AWS Bedrock, OpenRouter, Vercel AI Gateway                                                                                              |
+| OpenAI-compatible APIs      | xAI, Groq, DeepInfra, Together.ai, Fireworks, DeepSeek, Moonshot AI, Perplexity, Alibaba DashScope, Cerebras, Baseten, Hugging Face                                                                                           |
+| Media, audio, and flexible  | Fal, Black Forest Labs, Replicate, Prodia, Luma, ByteDance, Kling AI, ElevenLabs, AssemblyAI, Deepgram, Gladia, LMNT, Hume, Rev.ai                                                                                            |
+| Extra aliases and endpoints | `aistudio`, `vertex`, `grok`, `bfl`, `dashscope`, `alibabacloud`, `togetherai`, `fireworksai`, `moonshot`, `wandb`, `weightsandbiases`, `baidu`, `qianfan`, `venice`, `parasail`, `novita`, `atlascloud`, `xiaomi`, `minimax` |
 
-## Shorthand Aliases
+### Provider table
 
-Use these shortcuts in your connection strings — they expand automatically during normalization:
+| Provider ID         | Default host                              | Param style       |
+| ------------------- | ----------------------------------------- | ----------------- |
+| `openai`            | `api.openai.com`                          | snake_case        |
+| `azure`             | `models.inference.ai.azure.com`           | OpenAI-compatible |
+| `anthropic`         | `api.anthropic.com`                       | snake_case        |
+| `google`            | `generativelanguage.googleapis.com`       | camelCase         |
+| `google-vertex`     | `aiplatform.googleapis.com`               | camelCase         |
+| `mistral`           | `api.mistral.ai`                          | snake_case        |
+| `cohere`            | `api.cohere.com`                          | mixed             |
+| `bedrock`           | `bedrock-runtime.us-east-1.amazonaws.com` | camelCase         |
+| `openrouter`        | `openrouter.ai`                           | OpenAI-compatible |
+| `vercel`            | `gateway.ai.vercel.app`                   | OpenAI-compatible |
+| `xai`               | `api.x.ai`                                | OpenAI-compatible |
+| `groq`              | `api.groq.com`                            | OpenAI-compatible |
+| `fal`               | `fal.run`                                 | flexible          |
+| `deepinfra`         | `api.deepinfra.com`                       | OpenAI-compatible |
+| `black-forest-labs` | `api.bfl.ai`                              | flexible          |
+| `together`          | `api.together.xyz`                        | OpenAI-compatible |
+| `fireworks`         | `api.fireworks.ai`                        | OpenAI-compatible |
+| `deepseek`          | `api.deepseek.com`                        | OpenAI-compatible |
+| `moonshotai`        | `api.moonshot.ai`                         | OpenAI-compatible |
+| `perplexity`        | `api.perplexity.ai`                       | OpenAI-compatible |
+| `alibaba`           | `dashscope-intl.aliyuncs.com`             | OpenAI-compatible |
+| `cerebras`          | `api.cerebras.ai`                         | OpenAI-compatible |
+| `replicate`         | `api.replicate.com`                       | flexible          |
+| `prodia`            | `api.prodia.com`                          | flexible          |
+| `luma`              | `api.lumalabs.ai`                         | flexible          |
+| `bytedance`         | `ark.cn-beijing.volces.com`               | flexible          |
+| `kling`             | `api.klingai.com`                         | flexible          |
+| `elevenlabs`        | `api.elevenlabs.io`                       | flexible          |
+| `assemblyai`        | `api.assemblyai.com`                      | flexible          |
+| `deepgram`          | `api.deepgram.com`                        | flexible          |
+| `gladia`            | `api.gladia.io`                           | flexible          |
+| `lmnt`              | `api.lmnt.com`                            | flexible          |
+| `hume`              | `api.hume.ai`                             | flexible          |
+| `revai`             | `api.rev.ai`                              | flexible          |
+| `baseten`           | `api.baseten.co`                          | OpenAI-compatible |
+| `huggingface`       | `api-inference.huggingface.co`            | OpenAI-compatible |
+
+## Shorthand aliases
+
+Use short, memorable query params. `normalize()` expands them first, then maps
+them to provider-native names.
 
 | Shorthand                                                                                                    | Canonical           |
 | ------------------------------------------------------------------------------------------------------------ | ------------------- |
@@ -366,21 +366,46 @@ Use these shortcuts in your connection strings — they expand automatically dur
 | `reasoning`, `reasoning_effort`                                                                              | `effort`            |
 | `cache_control`, `cacheControl`, `cachePoint`, `cache_point`                                                 | `cache`             |
 
-## Sub-path Imports
-
-For smaller bundles, import only what you need:
+## Prompt caching
 
 ```ts
-import { parse, build } from "llm-strings/parse";
+import { normalize, parse } from "llm-strings";
+
+normalize(parse("llm://anthropic/claude-sonnet-4-5?max=4096&cache=true")).config
+  .params;
+// { max_tokens: "4096", cache_control: "ephemeral" }
+
+normalize(parse("llm://anthropic/claude-sonnet-4-5?max=4096&cache=5m")).config
+  .params;
+// { max_tokens: "4096", cache_control: "ephemeral", cache_ttl: "5m" }
+
+normalize(
+  parse("llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?cache=1h"),
+).config.params;
+// { cache_control: "ephemeral", cache_ttl: "1h" }
+```
+
+Caching currently normalizes for Anthropic and supported Bedrock models. For
+providers where caching is automatic, unsupported, or provider-specific in a way
+that should not be represented as a generation param, `cache` is dropped during
+normalization.
+
+## Sub-path imports
+
+```ts
+import { build, parse } from "llm-strings/parse";
 import { normalize } from "llm-strings/normalize";
 import { validate } from "llm-strings/validate";
+import { createAiSdkProviderOptions } from "llm-strings/ai-sdk";
 import {
+  ALIASES,
+  CANONICAL_PARAM_SPECS,
+  HOST_ALIASES,
+  PARAM_SPECS,
+  PROVIDER_META,
+  PROVIDER_PARAMS,
   detectProvider,
   resolveHostAlias,
-  ALIASES,
-  HOST_ALIASES,
-  PROVIDER_PARAMS,
-  PARAM_SPECS,
 } from "llm-strings/providers";
 ```
 
@@ -390,142 +415,119 @@ All sub-paths ship ESM + CJS with full type declarations.
 
 ### `parse(connectionString): LlmConnectionConfig`
 
-Parses an `llm://` connection string into its component parts. Throws if the scheme is not `llm://`.
+Parses an `llm://` connection string into structured config. Throws when the
+scheme is not `llm://`.
 
 ### `build(config): string`
 
-Reconstructs a connection string from a config object. Inverse of `parse()`.
+Builds an `llm://` connection string from a config object. This is the inverse
+of `parse()`.
 
 ### `normalize(config, options?): NormalizeResult`
 
-Normalizes parameters for the target provider:
+Normalizes params for the detected provider:
 
-1. Expands shorthand aliases (`temp` → `temperature`)
-2. Maps to provider-specific param names (`max_tokens` → `maxOutputTokens` for Google)
-3. Normalizes cache values (`cache=true` → `cache_control=ephemeral`)
-4. Adjusts for reasoning models (`max_tokens` → `max_completion_tokens` for o1/o3/o4)
+1. Expands shorthand aliases such as `temp` -> `temperature`.
+2. Maps canonical names to provider-specific names such as `max_tokens` ->
+   `maxOutputTokens` for Google.
+3. Normalizes cache values such as `cache=5m` -> `cache_control=ephemeral` and
+   `cache_ttl=5m`.
+4. Adjusts OpenAI reasoning-model params such as `max_tokens` ->
+   `max_completion_tokens`.
 
-Pass `{ verbose: true }` to get a detailed `changes` array documenting each transformation.
+Pass `{ verbose: true }` to get a `changes` array that documents each
+transformation.
 
 ### `validate(connectionString, options?): ValidationIssue[]`
 
-Parses, normalizes, and validates a connection string against provider-specific rules. Returns `[]` if everything is valid. Checks:
+Parses, normalizes, and validates a connection string. Returns `[]` when the
+config is valid. Checks include type correctness, numeric ranges, enum values,
+unknown params, unknown providers, Anthropic `temperature` + `top_p` mutual
+exclusion, OpenAI reasoning model restrictions, and Bedrock model-family rules.
 
-- Type correctness (number, boolean, string enums)
-- Value ranges (e.g., temperature 0–2 for OpenAI, 0–1 for Anthropic)
-- Mutual exclusions (`temperature` + `top_p` on Anthropic)
-- Reasoning model restrictions (no `temperature` on o1/o3/o4)
-- Bedrock model family constraints (`topK` only for Claude/Cohere/Mistral)
+Pass `{ strict: true }` to promote warnings, such as unknown providers or
+unknown params, to errors.
 
-Pass `{ strict: true }` to promote warnings (unknown provider, unknown params) to errors:
+### `createAiSdkProviderOptions(input, options?): AiSdkProviderOptionsResult`
 
-```ts
-validate("llm://custom-api.com/my-model?temp=0.5", { strict: true });
-// → [{ severity: "error", message: "Unknown provider …" }]
-```
+Creates AI SDK `providerOptions` from a string, parsed config, or normalize
+result. Import from `llm-strings/ai-sdk`.
 
-### `detectProvider(host): Provider | undefined`
+### Provider helpers
 
-Identifies the provider from a hostname string.
+Import from `llm-strings/providers`:
 
-### `resolveHostAlias(host): HostResolution`
-
-Expands provider short host aliases such as `"openai"` to canonical hosts such as `"api.openai.com"`. Reads `LLM_STRINGS_<PROVIDER>_HOST` and `LLM_STRINGS_HOST_<PROVIDER>` env overrides when available.
-
-### `detectBedrockModelFamily(model): BedrockModelFamily | undefined`
-
-Identifies the model family (anthropic, meta, amazon, mistral, cohere, ai21) from a Bedrock model ID. Handles cross-region (`us.`, `eu.`, `apac.`) and global inference profiles.
-
-### `detectGatewaySubProvider(model): Provider | undefined`
-
-Extracts the underlying provider from a gateway model string (e.g. `"anthropic/claude-sonnet-4-5"` → `"anthropic"`). Returns `undefined` for unknown prefixes or models without a `/`.
-
-### `isReasoningModel(model): boolean`
-
-Returns `true` for OpenAI reasoning models (o1, o3, o4 families). Handles gateway prefixes like `"openai/o3"`.
-
-### `isGatewayProvider(provider): boolean`
-
-Returns `true` for gateway providers (`openrouter`, `vercel`) that proxy to other providers.
-
-### `canHostOpenAIModels(provider): boolean`
-
-Returns `true` for providers that can route to OpenAI models and need reasoning-model checks (`openai`, `openrouter`, `vercel`).
-
-### `bedrockSupportsCaching(model): boolean`
-
-Returns `true` if the Bedrock model supports prompt caching (Claude and Nova models only).
+| Export                          | Description                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------- |
+| `detectProvider(host)`          | Detects provider from hostname.                                             |
+| `resolveHostAlias(host)`        | Expands aliases and applies `LLM_STRINGS_*_HOST` overrides.                 |
+| `detectBedrockModelFamily()`    | Detects Anthropic, Meta, Amazon, Mistral, Cohere, or AI21 Bedrock families. |
+| `detectGatewaySubProvider()`    | Extracts provider prefix from gateway models like `anthropic/claude...`.    |
+| `isReasoningModel(model)`       | Detects OpenAI o-series reasoning models, including gateway-prefixed names. |
+| `isGatewayProvider(provider)`   | Returns true for `openrouter` and `vercel`.                                 |
+| `canHostOpenAIModels(provider)` | Returns true for providers that need OpenAI reasoning-model checks.         |
+| `bedrockSupportsCaching(model)` | Returns true for Bedrock Claude and Nova prompt caching support.            |
 
 ### Constants
 
-| Export                        | Description                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------ |
-| `ALIASES`                     | Shorthand → canonical param name mapping                                                   |
-| `HOST_ALIASES`                | Short provider host aliases → canonical API hosts                                          |
-| `PROVIDER_PARAMS`             | Canonical → provider-specific param names, per provider                                    |
-| `PARAM_SPECS`                 | Validation rules (type, min/max, enum) per provider, keyed by provider-specific param name |
-| `REASONING_MODEL_UNSUPPORTED` | Set of canonical params unsupported by reasoning models                                    |
-| `PROVIDER_META`               | Array of provider metadata (id, name, host, brand color) for UI integrations               |
-| `CANONICAL_PARAM_SPECS`       | Canonical param specs per provider with descriptions — useful for building UIs             |
+| Export                        | Description                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------- |
+| `ALIASES`                     | Shorthand -> canonical param name mapping.                                      |
+| `HOST_ALIASES`                | Short provider host aliases -> canonical API hosts.                             |
+| `PROVIDER_PARAMS`             | Canonical -> provider-specific param names, per provider.                       |
+| `PARAM_SPECS`                 | Validation rules keyed by provider-specific param name.                         |
+| `REASONING_MODEL_UNSUPPORTED` | Canonical params unsupported by OpenAI reasoning models.                        |
+| `PROVIDER_META`               | Provider metadata for UI integrations.                                          |
+| `CANONICAL_PARAM_SPECS`       | Canonical param specs per provider, useful for building forms and settings UIs. |
 
 ## TypeScript
 
-Full type definitions ship with the package:
-
 ```ts
-// Core types from the main entry
 import type {
   LlmConnectionConfig,
-  NormalizeResult,
   NormalizeChange,
   NormalizeOptions,
+  NormalizeResult,
   ValidateOptions,
   ValidationIssue,
 } from "llm-strings";
 
-// Provider types from the providers sub-path
 import type {
-  Provider,
   BedrockModelFamily,
-  ParamSpec,
-  ProviderMeta,
   CanonicalParamSpec,
+  ParamSpec,
+  Provider,
+  ProviderMeta,
 } from "llm-strings/providers";
 ```
 
-## Provider Metadata (for UI integrations)
+## Development
 
-The library exports metadata useful for building UIs — provider names, brand colors, and canonical parameter specs:
-
-```ts
-import { PROVIDER_META, CANONICAL_PARAM_SPECS } from "llm-strings/providers";
-
-// Provider display info
-PROVIDER_META.forEach((p) => console.log(`${p.name}: ${p.host} (${p.color})`));
-// OpenAI: api.openai.com (#10a37f)
-// Anthropic: api.anthropic.com (#e8956a)
-// ...
-
-// Canonical param specs — useful for building config forms
-CANONICAL_PARAM_SPECS.openai.temperature;
-// → { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" }
-
-CANONICAL_PARAM_SPECS.anthropic.effort;
-// → { type: "enum", values: ["low", "medium", "high", "max"], default: "medium", description: "Thinking effort" }
+```bash
+pnpm install
+pnpm test
+pnpm run build
+pnpm run lint
 ```
+
+This package is intentionally small: pure TypeScript, zero runtime dependencies,
+and focused tests for parsing, normalization, validation, provider metadata,
+Bedrock behavior, gateway behavior, and AI SDK providerOptions.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Issues and pull requests are welcome. Good contributions include new provider
+aliases, provider-specific validation rules, improved normalization mappings,
+AI SDK providerOptions coverage, docs fixes, and real-world edge cases.
 
 ## License
 
-MIT
+MIT © Dan Levy
 
 ---
 
 <div align="center">
 
-**[📖 Read the spec](https://danlevy.net/llm-connection-strings/) · [🐛 Report a bug](https://github.com/justsml/llm-strings/issues) · [💡 Request a feature](https://github.com/justsml/llm-strings/issues)**
+**[Read the spec](https://danlevy.net/llm-connection-strings/) · [Report a bug](https://github.com/justsml/llm-strings/issues) · [Request a feature](https://github.com/justsml/llm-strings/issues)**
 
 </div>
