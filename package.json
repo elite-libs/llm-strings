@@ -1,6 +1,6 @@
 {
   "name": "llm-strings",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "packageManager": "pnpm@11.1.1",
   "description": "Parse and build LLM connection strings — like database URLs, but for LLM APIs",
   "type": "module",
@@ -117,6 +117,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.0",
     "prettier": "^3.0.0",
+    "terser": "^5.48.0",
     "tsup": "^8.0.0",
     "typescript": "^5.5.0",
     "typescript-eslint": "^8.0.0",
