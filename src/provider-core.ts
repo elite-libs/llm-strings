@@ -364,6 +364,7 @@ export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> = {
   openai: {
     temperature: "temperature",
     max_tokens: "max_tokens",
+    max_completion_tokens: "max_completion_tokens",
     top_p: "top_p",
     frequency_penalty: "frequency_penalty",
     presence_penalty: "presence_penalty",
@@ -439,6 +440,7 @@ export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> = {
     // OpenAI-compatible API with extra routing params
     temperature: "temperature",
     max_tokens: "max_tokens",
+    max_completion_tokens: "max_completion_tokens",
     top_p: "top_p",
     top_k: "top_k",
     frequency_penalty: "frequency_penalty",
@@ -453,6 +455,7 @@ export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> = {
     // OpenAI-compatible gateway
     temperature: "temperature",
     max_tokens: "max_tokens",
+    max_completion_tokens: "max_completion_tokens",
     top_p: "top_p",
     top_k: "top_k",
     frequency_penalty: "frequency_penalty",
@@ -624,6 +627,12 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
       min: 1,
       default: 4096,
       description: "Maximum output tokens",
+    },
+    max_completion_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum completion tokens (reasoning models)",
     },
     top_p: {
       type: "number",
@@ -915,6 +924,12 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
       default: 4096,
       description: "Maximum output tokens",
     },
+    max_completion_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum completion tokens (reasoning models)",
+    },
     top_p: {
       type: "number",
       min: 0,
@@ -967,6 +982,12 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
       min: 1,
       default: 4096,
       description: "Maximum output tokens",
+    },
+    max_completion_tokens: {
+      type: "number",
+      min: 1,
+      default: 4096,
+      description: "Maximum completion tokens (reasoning models)",
     },
     top_p: {
       type: "number",
