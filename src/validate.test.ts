@@ -5,7 +5,7 @@ describe("validate", () => {
   describe("valid configs", () => {
     it("returns no issues for valid OpenAI params", () => {
       const issues = validate(
-        "llm://api.openai.com/gpt-5.2?temp=0.7&max=1500&top_p=0.9",
+        "llm://api.openai.com/gpt-5.5?temp=0.7&max=1500&top_p=0.9",
       );
       expect(issues).toEqual([]);
     });
@@ -19,7 +19,7 @@ describe("validate", () => {
 
     it("returns no issues for valid Google params", () => {
       const issues = validate(
-        "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?temp=1.0&max=2048",
+        "llm://generativelanguage.googleapis.com/gemini-3.5-flash?temp=1.0&max=2048",
       );
       expect(issues).toEqual([]);
     });
@@ -34,7 +34,7 @@ describe("validate", () => {
 
   describe("out of range", () => {
     it("flags temperature > 2 for OpenAI", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.2?temp=3.0");
+      const issues = validate("llm://api.openai.com/gpt-5.5?temp=3.0");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain("<= 2");
@@ -50,14 +50,14 @@ describe("validate", () => {
     });
 
     it("flags negative temperature", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.2?temp=-0.5");
+      const issues = validate("llm://api.openai.com/gpt-5.5?temp=-0.5");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain(">= 0");
     });
 
     it("flags top_p > 1", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.2?top_p=1.5");
+      const issues = validate("llm://api.openai.com/gpt-5.5?top_p=1.5");
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 1");
     });
@@ -73,14 +73,14 @@ describe("validate", () => {
 
   describe("type errors", () => {
     it("flags non-numeric temperature", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.2?temp=hot");
+      const issues = validate("llm://api.openai.com/gpt-5.5?temp=hot");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain("number");
     });
 
     it("flags invalid boolean for stream", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.2?stream=yes");
+      const issues = validate("llm://api.openai.com/gpt-5.5?stream=yes");
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("boolean");
     });
@@ -96,7 +96,7 @@ describe("validate", () => {
         "llm://api.anthropic.com/claude-opus-4-6?effort=extreme",
       );
       expect(issues).toHaveLength(1);
-      expect(issues[0].message).toContain("low, medium, high, max");
+      expect(issues[0].message).toContain("low, medium, high, xhigh, max");
     });
   });
 
@@ -127,7 +127,7 @@ describe("validate", () => {
   describe("unknown params", () => {
     it("warns about unknown params", () => {
       const issues = validate(
-        "llm://api.openai.com/gpt-5.2?made_up_param=hello",
+        "llm://api.openai.com/gpt-5.5?made_up_param=hello",
       );
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("warning");
@@ -145,6 +145,13 @@ describe("validate", () => {
 
     it("flags top_p on OpenAI reasoning models", () => {
       const issues = validate("llm://api.openai.com/o3-mini?top_p=0.9");
+      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
+        true,
+      );
+    });
+
+    it("flags temperature on GPT-5 reasoning models", () => {
+      const issues = validate("llm://api.openai.com/gpt-5.5?temp=0.7");
       expect(issues.some((i) => i.message.includes("not supported"))).toBe(
         true,
       );
@@ -225,7 +232,7 @@ describe("validate", () => {
     });
 
     it("flags temperature > 2 on OpenRouter", () => {
-      const issues = validate("llm://openrouter.ai/openai/gpt-5.2?temp=3.0");
+      const issues = validate("llm://openrouter.ai/openai/gpt-5.5?temp=3.0");
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 2");
     });
@@ -241,9 +248,26 @@ describe("validate", () => {
   describe("Vercel AI Gateway", () => {
     it("detects and validates Vercel gateway params", () => {
       const issues = validate(
-        "llm://gateway.ai.vercel.sh/openai/gpt-5.2?temp=0.7&max=1500",
+        "llm://gateway/openai/gpt-5.5?temp=0.7&max=1500",
       );
       expect(issues).toEqual([]);
+    });
+
+    it("accepts Vercel gateway provider options", () => {
+      const issues = validate(
+        "llm://gateway.ai.vercel.sh/anthropic/claude-sonnet-4?order=vertex,anthropic&sort=ttft&caching=auto&tags=chat,v2",
+      );
+      expect(issues).toEqual([]);
+    });
+
+    it("flags invalid Vercel gateway provider option values", () => {
+      const issues = validate(
+        "llm://gateway.ai.vercel.sh/anthropic/claude-sonnet-4?sort=latency&caching=manual",
+      );
+      expect(issues).toHaveLength(2);
+      expect(issues.every((i) => i.message.includes("must be one of"))).toBe(
+        true,
+      );
     });
 
     it("flags invalid param types on Vercel", () => {
@@ -301,9 +325,9 @@ describe("validate", () => {
       expect(issues).toEqual([]);
     });
 
-    it("rejects OpenAI-only effort values for Anthropic via gateway", () => {
+    it("rejects unsupported effort values for Anthropic via gateway", () => {
       const issues = validate(
-        "llm://openrouter.ai/anthropic/claude-sonnet-4-5?effort=xhigh",
+        "llm://openrouter.ai/anthropic/claude-sonnet-4-5?effort=none",
       );
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("must be one of");
@@ -331,7 +355,7 @@ describe("validate", () => {
 
     it("returns error for unknown params when strict", () => {
       const issues = validate(
-        "llm://api.openai.com/gpt-5.2?made_up_param=hello",
+        "llm://api.openai.com/gpt-5.5?made_up_param=hello",
         { strict: true },
       );
       expect(issues).toHaveLength(1);
@@ -340,10 +364,9 @@ describe("validate", () => {
     });
 
     it("does not affect valid configs", () => {
-      const issues = validate(
-        "llm://api.openai.com/gpt-5.2?temp=0.7&max=1500",
-        { strict: true },
-      );
+      const issues = validate("llm://api.openai.com/gpt-5.5?temp=0.7&max=1500", {
+        strict: true,
+      });
       expect(issues).toEqual([]);
     });
   });

@@ -113,6 +113,11 @@ export function validate(
     : new Set(Object.values(PROVIDER_PARAMS[provider]));
 
   for (const [key, value] of Object.entries(config.params)) {
+    const gatewayOwnSpec =
+      subProvider && gatewayReverseMap?.[key] === undefined
+        ? PARAM_SPECS[provider]?.[key]
+        : undefined;
+
     // Check for OpenAI reasoning model restrictions (direct or via gateway)
     if (
       canHostOpenAIModels(provider) &&
@@ -162,7 +167,7 @@ export function validate(
     }
 
     // Check if param is known for this provider (or sub-provider)
-    if (!knownParams.has(key) && !specs[key]) {
+    if (!knownParams.has(key) && !specs[key] && !gatewayOwnSpec) {
       issues.push({
         param: key,
         value,
@@ -174,7 +179,7 @@ export function validate(
 
     // Look up the spec — for gateways with a sub-provider, map through
     // canonical names to find the sub-provider's spec
-    let spec: ParamSpec | undefined = specs[key];
+    let spec: ParamSpec | undefined = gatewayOwnSpec ?? specs[key];
     if (subProvider && gatewayReverseMap && !spec) {
       const result = lookupSubProviderSpec(key, gatewayReverseMap, subProvider);
       spec = result.spec;

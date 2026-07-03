@@ -7,6 +7,7 @@ import {
   HOST_ALIASES,
   detectProvider,
   detectGatewaySubProvider,
+  isReasoningModel,
   isGatewayProvider,
   resolveHostAlias,
 } from "./providers.js";
@@ -246,7 +247,7 @@ describe("isGatewayProvider", () => {
 
 describe("detectGatewaySubProvider", () => {
   it("detects known sub-providers from model prefix", () => {
-    expect(detectGatewaySubProvider("openai/gpt-5.2")).toBe("openai");
+    expect(detectGatewaySubProvider("openai/gpt-5.5")).toBe("openai");
     expect(detectGatewaySubProvider("anthropic/claude-sonnet-4-5")).toBe(
       "anthropic",
     );
@@ -263,7 +264,7 @@ describe("detectGatewaySubProvider", () => {
   });
 
   it("returns undefined for models without a slash", () => {
-    expect(detectGatewaySubProvider("gpt-5.2")).toBeUndefined();
+    expect(detectGatewaySubProvider("gpt-5.5")).toBeUndefined();
     expect(detectGatewaySubProvider("claude-sonnet-4-5")).toBeUndefined();
   });
 
@@ -271,5 +272,15 @@ describe("detectGatewaySubProvider", () => {
     expect(detectGatewaySubProvider("openrouter/some-model")).toBeUndefined();
     expect(detectGatewaySubProvider("vercel/some-model")).toBeUndefined();
     expect(detectGatewaySubProvider("bedrock/some-model")).toBeUndefined();
+  });
+});
+
+describe("isReasoningModel", () => {
+  it("detects o-series and GPT-5 reasoning model IDs", () => {
+    expect(isReasoningModel("o3")).toBe(true);
+    expect(isReasoningModel("o4-mini")).toBe(true);
+    expect(isReasoningModel("gpt-5.5")).toBe(true);
+    expect(isReasoningModel("openai/gpt-5.5")).toBe(true);
+    expect(isReasoningModel("gpt-4o")).toBe(false);
   });
 });

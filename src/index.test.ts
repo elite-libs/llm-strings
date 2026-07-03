@@ -5,11 +5,11 @@ import { normalize } from "./normalize.js";
 describe("parse", () => {
   it("parses a basic connection string", () => {
     const result = parse(
-      "llm://api.openai.com/gpt-5.2?temp=0.7&max_tokens=1500",
+      "llm://api.openai.com/gpt-4o?temp=0.7&max_tokens=1500",
     );
 
     expect(result.host).toBe("api.openai.com");
-    expect(result.model).toBe("gpt-5.2");
+    expect(result.model).toBe("gpt-4o");
     expect(result.params).toEqual({ temp: "0.7", max_tokens: "1500" });
     expect(result.label).toBeUndefined();
     expect(result.apiKey).toBeUndefined();
@@ -17,30 +17,30 @@ describe("parse", () => {
 
   it("parses auth credentials", () => {
     const result = parse(
-      "llm://app-name:sk-proj-123456@api.openai.com/gpt-5.2?temp=0.7",
+      "llm://app-name:sk-proj-123456@api.openai.com/gpt-4o?temp=0.7",
     );
 
     expect(result.host).toBe("api.openai.com");
-    expect(result.model).toBe("gpt-5.2");
+    expect(result.model).toBe("gpt-4o");
     expect(result.label).toBe("app-name");
     expect(result.apiKey).toBe("sk-proj-123456");
     expect(result.params).toEqual({ temp: "0.7" });
   });
 
   it("parses a string with no query params", () => {
-    const result = parse("llm://api.openai.com/gpt-5.2");
+    const result = parse("llm://api.openai.com/gpt-4o");
 
     expect(result.host).toBe("api.openai.com");
-    expect(result.model).toBe("gpt-5.2");
+    expect(result.model).toBe("gpt-4o");
     expect(result.params).toEqual({});
   });
 
   it("expands short provider host aliases", () => {
-    const result = parse("llm://openai/gpt-5.2?temp=0.7");
+    const result = parse("llm://openai/gpt-4o?temp=0.7");
 
     expect(result.host).toBe("api.openai.com");
     expect(result.hostAlias).toBe("openai");
-    expect(result.model).toBe("gpt-5.2");
+    expect(result.model).toBe("gpt-4o");
     expect(normalize(result).provider).toBe("openai");
   });
 
@@ -50,7 +50,7 @@ describe("parse", () => {
       "https://regional.openai.example.com/v1";
 
     try {
-      const result = parse("llm://openai/gpt-5.2");
+      const result = parse("llm://openai/gpt-4o");
 
       expect(result.host).toBe("regional.openai.example.com");
       expect(result.hostAlias).toBe("openai");
@@ -86,7 +86,7 @@ describe("parse", () => {
   });
 
   it("throws on invalid scheme", () => {
-    expect(() => parse("http://api.openai.com/gpt-5.2")).toThrow(
+    expect(() => parse("http://api.openai.com/gpt-4o")).toThrow(
       "Invalid scheme",
     );
   });
@@ -96,37 +96,35 @@ describe("build", () => {
   it("builds a basic connection string", () => {
     const result = build({
       host: "api.openai.com",
-      model: "gpt-5.2",
+      model: "gpt-4o",
       params: { temp: "0.7", max_tokens: "1500" },
     });
 
-    expect(result).toBe(
-      "llm://api.openai.com/gpt-5.2?temp=0.7&max_tokens=1500",
-    );
+    expect(result).toBe("llm://api.openai.com/gpt-4o?temp=0.7&max_tokens=1500");
   });
 
   it("builds with auth credentials", () => {
     const result = build({
       host: "api.openai.com",
-      model: "gpt-5.2",
+      model: "gpt-4o",
       label: "app-name",
       apiKey: "sk-proj-123456",
       params: { temp: "0.7" },
     });
 
     expect(result).toBe(
-      "llm://app-name:sk-proj-123456@api.openai.com/gpt-5.2?temp=0.7",
+      "llm://app-name:sk-proj-123456@api.openai.com/gpt-4o?temp=0.7",
     );
   });
 
   it("builds with no params", () => {
     const result = build({
       host: "api.openai.com",
-      model: "gpt-5.2",
+      model: "gpt-4o",
       params: {},
     });
 
-    expect(result).toBe("llm://api.openai.com/gpt-5.2");
+    expect(result).toBe("llm://api.openai.com/gpt-4o");
   });
 
   it("builds with short provider host aliases", () => {

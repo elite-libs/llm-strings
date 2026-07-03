@@ -72,7 +72,7 @@ describe("createAiSdkProviderOptions", () => {
 
     const result = createAiSdkProviderOptions(
       parse(
-        "llm://google/gemini-3-flash-preview?thinking_level=high&thinking_budget=1024&include_thoughts=true",
+        "llm://google/gemini-3.5-flash?thinking_level=high&thinking_budget=1024&include_thoughts=true",
       ),
     );
 
@@ -91,11 +91,17 @@ describe("createAiSdkProviderOptions", () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 
     const result = createAiSdkProviderOptions(
-      parse("llm://vercel/anthropic/claude-sonnet-4?order=vertex,anthropic"),
+      parse(
+        "llm://vercel/anthropic/claude-sonnet-4?order=vertex,anthropic&sort=ttft&caching=auto",
+      ),
     );
 
     expect(result.providerOptions).toEqual({
-      gateway: { order: ["vertex", "anthropic"] },
+      gateway: {
+        order: ["vertex", "anthropic"],
+        sort: "ttft",
+        caching: "auto",
+      },
     });
   });
 
@@ -165,7 +171,7 @@ describe("createAiSdkProviderOptions", () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 
     const result = createAiSdkProviderOptions(
-      parse("llm://api.openai.com/gpt-5.2?temp=0.7&top_p=0.9&seed=42"),
+      parse("llm://api.openai.com/gpt-4o?temp=0.7&top_p=0.9&seed=42"),
     );
 
     expect(result.providerOptions).toEqual({});

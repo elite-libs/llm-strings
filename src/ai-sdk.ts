@@ -507,6 +507,7 @@ function addGatewayOption(
   };
   const directKeys = new Set([
     "sort",
+    "caching",
     "user",
     "zeroDataRetention",
     "disallowPromptTraining",

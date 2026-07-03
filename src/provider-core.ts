@@ -689,8 +689,8 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
     stream: { type: "boolean", default: false, description: "Stream response" },
     effort: {
       type: "string",
-      values: ["low", "medium", "high", "max"],
-      default: "medium",
+      values: ["low", "medium", "high", "xhigh", "max"],
+      default: "low",
       description: "Thinking effort",
     },
     cache_control: {
@@ -1005,6 +1005,62 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
       default: "medium",
       description: "Reasoning effort",
     },
+    order: { type: "string", description: "Gateway provider order" },
+    only: { type: "string", description: "Gateway provider allowlist" },
+    models: { type: "string", description: "Gateway fallback models" },
+    tags: { type: "string", description: "Gateway usage tags" },
+    sort: {
+      type: "string",
+      values: ["cost", "ttft", "tps"],
+      description: "Gateway provider sort strategy",
+    },
+    caching: {
+      type: "string",
+      values: ["auto"],
+      description: "Gateway automatic caching strategy",
+    },
+    user: { type: "string", description: "Gateway usage user identifier" },
+    byok: { type: "string", description: "Gateway BYOK credentials" },
+    zero_data_retention: {
+      type: "boolean",
+      description: "Gateway zero data retention routing",
+    },
+    zeroDataRetention: {
+      type: "boolean",
+      description: "Gateway zero data retention routing",
+    },
+    disallow_prompt_training: {
+      type: "boolean",
+      description: "Gateway prompt training opt-out routing",
+    },
+    disallowPromptTraining: {
+      type: "boolean",
+      description: "Gateway prompt training opt-out routing",
+    },
+    hipaa_compliant: {
+      type: "boolean",
+      description: "Gateway HIPAA-compliant routing",
+    },
+    hipaaCompliant: {
+      type: "boolean",
+      description: "Gateway HIPAA-compliant routing",
+    },
+    quota_entity_id: {
+      type: "string",
+      description: "Gateway quota entity identifier",
+    },
+    quotaEntityId: {
+      type: "string",
+      description: "Gateway quota entity identifier",
+    },
+    provider_timeouts: {
+      type: "string",
+      description: "Gateway provider timeouts",
+    },
+    providerTimeouts: {
+      type: "string",
+      description: "Gateway provider timeouts",
+    },
   },
   xai: OPENAI_COMPATIBLE_PARAM_SPECS,
   groq: OPENAI_COMPATIBLE_PARAM_SPECS,
@@ -1036,9 +1092,9 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
 
 /** OpenAI reasoning models don't support standard sampling params. */
 export function isReasoningModel(model: string): boolean {
-  // Strip gateway prefix: "openai/o3" → "o3"
+  // Strip gateway prefix: "openai/o3" -> "o3"
   const name = model.includes("/") ? model.split("/").pop()! : model;
-  return /^o[134]/.test(name);
+  return /^o[134](?:$|[-.])/.test(name) || /^gpt-5(?:$|[.-])/.test(name);
 }
 
 /** Providers that can route to OpenAI models (and need reasoning-model checks). */

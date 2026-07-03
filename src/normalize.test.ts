@@ -5,20 +5,20 @@ import { parse } from "./index.js";
 describe("normalize", () => {
   describe("alias expansion", () => {
     it("expands temp → temperature", () => {
-      const config = parse("llm://api.openai.com/gpt-5.2?temp=0.7");
+      const config = parse("llm://api.openai.com/gpt-4o?temp=0.7");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ temperature: "0.7" });
     });
 
     it("expands max → max_tokens for OpenAI", () => {
-      const config = parse("llm://api.openai.com/gpt-5.2?max=1500");
+      const config = parse("llm://api.openai.com/gpt-4o?max=1500");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ max_tokens: "1500" });
     });
 
     it("expands multiple aliases at once", () => {
       const config = parse(
-        "llm://api.openai.com/gpt-5.2?temp=0.7&max=1500&topp=0.9",
+        "llm://api.openai.com/gpt-4o?temp=0.7&max=1500&topp=0.9",
       );
       const { config: result } = normalize(config);
       expect(result.params).toEqual({
@@ -30,7 +30,7 @@ describe("normalize", () => {
 
     it("expands freq_penalty and pres_penalty", () => {
       const config = parse(
-        "llm://api.openai.com/gpt-5.2?freq_penalty=0.5&pres_penalty=0.3",
+        "llm://api.openai.com/gpt-4o?freq_penalty=0.5&pres_penalty=0.3",
       );
       const { config: result } = normalize(config);
       expect(result.params).toEqual({
@@ -43,7 +43,7 @@ describe("normalize", () => {
   describe("provider-specific mapping", () => {
     it("maps max_tokens → maxOutputTokens for Google", () => {
       const config = parse(
-        "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?max=1500&top_p=0.9",
+        "llm://generativelanguage.googleapis.com/gemini-3.5-flash?max=1500&top_p=0.9",
       );
       const { config: result, provider } = normalize(config);
       expect(provider).toBe("google");
@@ -141,7 +141,7 @@ describe("normalize", () => {
     });
 
     it("drops cache param for providers without explicit caching", () => {
-      const config = parse("llm://api.openai.com/gpt-5.2?cache=true");
+      const config = parse("llm://api.openai.com/gpt-4o?cache=true");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({});
     });
@@ -158,6 +158,12 @@ describe("normalize", () => {
       const config = parse("llm://api.openai.com/o4-mini?max=2048");
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ max_completion_tokens: "2048" });
+    });
+
+    it("remaps max_tokens → max_completion_tokens for GPT-5", () => {
+      const config = parse("llm://api.openai.com/gpt-5.5?max=4096");
+      const { config: result } = normalize(config);
+      expect(result.params).toEqual({ max_completion_tokens: "4096" });
     });
   });
 
@@ -261,7 +267,7 @@ describe("normalize", () => {
   describe("Vercel AI Gateway", () => {
     it("detects vercel and uses OpenAI-compatible params", () => {
       const config = parse(
-        "llm://gateway.ai.vercel.sh/openai/gpt-5.2?temp=0.7&max=1500&top_p=0.9",
+        "llm://gateway.ai.vercel.sh/openai/gpt-4o?temp=0.7&max=1500&top_p=0.9",
       );
       const { config: result, provider, subProvider } = normalize(config);
       expect(provider).toBe("vercel");
@@ -293,7 +299,7 @@ describe("normalize", () => {
 
   describe("provider detection", () => {
     it("detects openai", () => {
-      const config = parse("llm://api.openai.com/gpt-5.2");
+      const config = parse("llm://api.openai.com/gpt-5.5");
       expect(normalize(config).provider).toBe("openai");
     });
 
@@ -304,7 +310,7 @@ describe("normalize", () => {
 
     it("detects google", () => {
       const config = parse(
-        "llm://generativelanguage.googleapis.com/gemini-3-flash-preview",
+        "llm://generativelanguage.googleapis.com/gemini-3.5-flash",
       );
       expect(normalize(config).provider).toBe("google");
     });
@@ -332,7 +338,7 @@ describe("normalize", () => {
     });
 
     it("detects vercel", () => {
-      const config = parse("llm://gateway.ai.vercel.sh/openai/gpt-5.2");
+      const config = parse("llm://gateway.ai.vercel.sh/openai/gpt-5.5");
       expect(normalize(config).provider).toBe("vercel");
     });
 
@@ -357,7 +363,7 @@ describe("normalize", () => {
     });
 
     it("returns empty changes when verbose is false", () => {
-      const config = parse("llm://api.openai.com/gpt-5.2?temp=0.7");
+      const config = parse("llm://api.openai.com/gpt-4o?temp=0.7");
       const { changes } = normalize(config, { verbose: false });
       expect(changes).toEqual([]);
     });
@@ -366,7 +372,7 @@ describe("normalize", () => {
   describe("passthrough", () => {
     it("passes through already-canonical params unchanged", () => {
       const config = parse(
-        "llm://api.openai.com/gpt-5.2?temperature=0.7&max_tokens=1500",
+        "llm://api.openai.com/gpt-4o?temperature=0.7&max_tokens=1500",
       );
       const { config: result } = normalize(config);
       expect(result.params).toEqual({

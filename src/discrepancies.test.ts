@@ -55,7 +55,7 @@ describe("Parameter Discrepancies & Validation", () => {
   describe("Google Gemini Parameters", () => {
     it("should normalize responseMimeType and responseSchema", () => {
       const config = parse(
-        "llm://generativelanguage.googleapis.com/gemini-3-flash-preview?responseMimeType=application/json&responseSchema={}",
+        "llm://generativelanguage.googleapis.com/gemini-3.5-flash?responseMimeType=application/json&responseSchema={}",
       );
       const { config: normalized } = normalize(config);
       expect(normalized.params.responseMimeType).toBe("application/json");

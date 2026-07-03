@@ -21,8 +21,8 @@
 ![The parts of an LLM connection string](./assets/inline-url-diagram-dark.svg)
 
 ```ini
-llm://openai/gpt-5.2?temp=0.7&max=2000
-llm://anthropic/claude-sonnet-4-5?cache=5m&effort=max
+llm://openai/gpt-5.5?effort=medium&max=2000
+llm://anthropic/claude-opus-4-8?cache=5m&effort=max
 llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096
 llm://openrouter/anthropic/claude-sonnet-4-5?temp=0.7&max=2000
 ```
@@ -73,14 +73,14 @@ bun add llm-strings
 ```ts
 import { build, normalize, parse, validate } from "llm-strings";
 
-const input = "llm://openai/gpt-5.2?temp=0.7&max=2000&topp=0.9";
+const input = "llm://openai/gpt-4o?temp=0.7&max=2000&topp=0.9";
 
 const parsed = parse(input);
 // {
-//   raw: "llm://openai/gpt-5.2?temp=0.7&max=2000&topp=0.9",
+//   raw: "llm://openai/gpt-4o?temp=0.7&max=2000&topp=0.9",
 //   host: "api.openai.com",
 //   hostAlias: "openai",
-//   model: "gpt-5.2",
+//   model: "gpt-4o",
 //   params: { temp: "0.7", max: "2000", topp: "0.9" }
 // }
 
@@ -117,8 +117,8 @@ llm://[label[:apiKey]@]host/model[?params]
 | `label`  | No       | App name or environment label     | `worker`                   |
 | `apiKey` | No       | API key in the password position  | `sk-proj-abc123`           |
 | `host`   | Yes      | Provider host or short alias      | `api.openai.com`, `openai` |
-| `model`  | Yes      | Model name, route, or provider ID | `gpt-5.2`                  |
-| `params` | No       | Query-string generation settings  | `temp=0.7&max=2000`        |
+| `model`  | Yes      | Model name, route, or provider ID | `gpt-5.5`                  |
+| `params` | No       | Query-string generation settings  | `effort=medium&max=2000`   |
 
 Connection strings can include secrets, so treat values containing `apiKey` like
 credentials: store them in secret managers or env vars, and avoid logging them.
@@ -128,7 +128,7 @@ credentials: store them in secret managers or env vars, and avoid logging them.
 ### One env var for your model config
 
 ```bash
-LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-5.2?temp=0.7&max=2000"
+LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-4o?temp=0.7&max=2000"
 ```
 
 ```ts
@@ -161,13 +161,13 @@ console.log(provider); // "openai"
 
 ```bash
 # OpenAI
-LLM_URL="llm://openai/gpt-5.2?temp=0.7&max=2000&top_p=0.9"
+LLM_URL="llm://openai/gpt-4o?temp=0.7&max=2000"
 
 # Anthropic
-LLM_URL="llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000&top_p=0.9"
+LLM_URL="llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000"
 
 # Google
-LLM_URL="llm://google/gemini-3-flash-preview?temp=0.7&max=2000&top_p=0.9"
+LLM_URL="llm://google/gemini-3.5-flash?temp=0.7&max=2000"
 
 # Bedrock
 LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.7&max=2000"
@@ -177,17 +177,17 @@ LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.7&max
 import { normalize, parse } from "llm-strings";
 
 for (const value of [
-  "llm://openai/gpt-5.2?temp=0.7&max=2000&top_p=0.9",
-  "llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000&top_p=0.9",
-  "llm://google/gemini-3-flash-preview?temp=0.7&max=2000&top_p=0.9",
+  "llm://openai/gpt-4o?temp=0.7&max=2000",
+  "llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000",
+  "llm://google/gemini-3.5-flash?temp=0.7&max=2000",
 ]) {
   const { config, provider } = normalize(parse(value));
   console.log(provider, config.params);
 }
 
-// openai    { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
-// anthropic { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
-// google    { temperature: "0.7", maxOutputTokens: "2000", topP: "0.9" }
+// openai    { temperature: "0.7", max_tokens: "2000" }
+// anthropic { temperature: "0.7", max_tokens: "2000" }
+// google    { temperature: "0.7", maxOutputTokens: "2000" }
 ```
 
 ### Resolve short host aliases
@@ -218,11 +218,11 @@ include a scheme or path; only the host portion is used.
 ```ts
 import { validate } from "llm-strings";
 
-validate("llm://openai/gpt-5.2?temp=3.0");
+validate("llm://openai/gpt-4o?temp=3.0");
 // [{ param: "temperature", message: "\"temperature\" must be <= 2, got 3", ... }]
 
-validate("llm://openai/o3?temp=0.7&max=2000");
-// [{ param: "temperature", message: "\"temperature\" is not supported by OpenAI reasoning model \"o3\"...", ... }]
+validate("llm://openai/gpt-5.5?temp=0.7&max=2000");
+// [{ param: "temperature", message: "\"temperature\" is not supported by OpenAI reasoning model \"gpt-5.5\"...", ... }]
 
 validate("llm://custom-api.example.com/model?temp=0.7", { strict: true });
 // [{ param: "host", severity: "error", message: "Unknown provider..." }]
@@ -234,7 +234,7 @@ validate("llm://custom-api.example.com/model?temp=0.7", { strict: true });
 import { normalize, parse } from "llm-strings";
 
 const { changes } = normalize(
-  parse("llm://google/gemini-3-flash-preview?temp=0.7&max=2000&topp=0.9"),
+  parse("llm://google/gemini-3.5-flash?temp=0.7&max=2000&topp=0.9"),
   { verbose: true },
 );
 
@@ -272,7 +272,8 @@ const { providerOptions } = createAiSdkProviderOptions(
 Common generation settings like temperature, top-p, and max output tokens
 belong on the AI SDK call itself. The helper emits provider-specific options
 such as Anthropic cache control, Bedrock cache points, OpenAI reasoning options,
-Mistral `safePrompt`, OpenRouter routing, and Vercel AI Gateway routing.
+Mistral `safePrompt`, OpenRouter routing, and Vercel AI Gateway routing,
+including options such as `order`, `sort=ttft`, and `caching=auto`.
 
 ### Build provider-aware UIs
 
@@ -386,6 +387,8 @@ normalize(
 ```
 
 Caching currently normalizes for Anthropic and supported Bedrock models. For
+Anthropic, `cache=5m` and `cache=1h` are both supported. For Bedrock, support is
+model-family specific and currently covers Claude and Amazon Nova models. For
 providers where caching is automatic, unsupported, or provider-specific in a way
 that should not be represented as a generation param, `cache` is dropped during
 normalization.
@@ -457,16 +460,16 @@ result. Import from `llm-strings/ai-sdk`.
 
 Import from `llm-strings/providers`:
 
-| Export                          | Description                                                                 |
-| ------------------------------- | --------------------------------------------------------------------------- |
-| `detectProvider(host)`          | Detects provider from hostname.                                             |
-| `resolveHostAlias(host)`        | Expands aliases and applies `LLM_STRINGS_*_HOST` overrides.                 |
-| `detectBedrockModelFamily()`    | Detects Anthropic, Meta, Amazon, Mistral, Cohere, or AI21 Bedrock families. |
-| `detectGatewaySubProvider()`    | Extracts provider prefix from gateway models like `anthropic/claude...`.    |
-| `isReasoningModel(model)`       | Detects OpenAI o-series reasoning models, including gateway-prefixed names. |
-| `isGatewayProvider(provider)`   | Returns true for `openrouter` and `vercel`.                                 |
-| `canHostOpenAIModels(provider)` | Returns true for providers that need OpenAI reasoning-model checks.         |
-| `bedrockSupportsCaching(model)` | Returns true for Bedrock Claude and Nova prompt caching support.            |
+| Export                          | Description                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `detectProvider(host)`          | Detects provider from hostname.                                                       |
+| `resolveHostAlias(host)`        | Expands aliases and applies `LLM_STRINGS_*_HOST` overrides.                           |
+| `detectBedrockModelFamily()`    | Detects Anthropic, Meta, Amazon, Mistral, Cohere, or AI21 Bedrock families.           |
+| `detectGatewaySubProvider()`    | Extracts provider prefix from gateway models like `anthropic/claude...`.              |
+| `isReasoningModel(model)`       | Detects OpenAI GPT-5 and o-series reasoning models, including gateway-prefixed names. |
+| `isGatewayProvider(provider)`   | Returns true for `openrouter` and `vercel`.                                           |
+| `canHostOpenAIModels(provider)` | Returns true for providers that need OpenAI reasoning-model checks.                   |
+| `bedrockSupportsCaching(model)` | Returns true for Bedrock Claude and Nova prompt caching support.                      |
 
 ### Constants
 
