@@ -6,9 +6,12 @@ import {
   PROVIDER_PARAMS,
   HOST_ALIASES,
   detectProvider,
+  detectBedrockModelFamily,
   detectGatewaySubProvider,
+  bedrockSupportsCaching,
   isReasoningModel,
   isGatewayProvider,
+  modelMatchesFamily,
   resolveHostAlias,
 } from "./providers.js";
 import type { Provider } from "./providers.js";
@@ -264,6 +267,16 @@ describe("detectGatewaySubProvider", () => {
     expect(detectGatewaySubProvider("cohere/command-r-plus")).toBe("cohere");
   });
 
+  it("handles case-insensitive gateway prefixes and Google Vertex aliases", () => {
+    expect(detectGatewaySubProvider("OpenAI/GPT-5-20260703")).toBe("openai");
+    expect(detectGatewaySubProvider("vertex/gemini-3.5-pro-latest")).toBe(
+      "google",
+    );
+    expect(
+      detectGatewaySubProvider("google-vertex/gemini-3.5-pro-latest"),
+    ).toBe("google");
+  });
+
   it("returns undefined for unknown sub-providers", () => {
     expect(detectGatewaySubProvider("qwen/qwen2.5-pro")).toBeUndefined();
     expect(detectGatewaySubProvider("deepseek/deepseek-v3")).toBeUndefined();
@@ -281,15 +294,57 @@ describe("detectGatewaySubProvider", () => {
   });
 });
 
+describe("modelMatchesFamily", () => {
+  it("matches known model families across version suffix delimiters", () => {
+    expect(modelMatchesFamily("openai/gpt-5-20260703-preview", "gpt-5")).toBe(
+      true,
+    );
+    expect(modelMatchesFamily("claude-sonnet-4-5-20250929", "claude")).toBe(
+      true,
+    );
+    expect(modelMatchesFamily("nova.v2", "nova")).toBe(true);
+  });
+
+  it("does not match families embedded in longer names", () => {
+    expect(modelMatchesFamily("gpt-50-preview", "gpt-5")).toBe(false);
+    expect(modelMatchesFamily("novalite", "nova")).toBe(false);
+    expect(modelMatchesFamily("gpt-5_20260703-preview", "gpt-5")).toBe(false);
+    expect(modelMatchesFamily("nova:v2", "nova")).toBe(false);
+  });
+});
+
 describe("isReasoningModel", () => {
   it("detects reasoning model family prefixes", () => {
     expect(isReasoningModel("o3")).toBe(true);
     expect(isReasoningModel("o4-mini")).toBe(true);
     expect(isReasoningModel("o9-preview")).toBe(true);
+    expect(isReasoningModel("o9.20260703")).toBe(true);
     expect(isReasoningModel("gpt-5.5")).toBe(true);
     expect(isReasoningModel("gpt-5.12-preview")).toBe(true);
+    expect(isReasoningModel("gpt-7")).toBe(true);
+    expect(isReasoningModel("gpt-7.1-preview")).toBe(true);
+    expect(isReasoningModel("openai/GPT-5-20260703-preview")).toBe(true);
     expect(isReasoningModel("openai/gpt-5.5")).toBe(true);
     expect(isReasoningModel("gpt-4o")).toBe(false);
     expect(isReasoningModel("gpt-50")).toBe(false);
+    expect(isReasoningModel("gpt-5_20260703")).toBe(false);
+  });
+});
+
+describe("detectBedrockModelFamily", () => {
+  it("matches family segments across profiles, ARNs, and suffix revisions", () => {
+    expect(
+      detectBedrockModelFamily(
+        "arn:aws:bedrock:us-east-1::inference-profile/us.anthropic.claude-sonnet-4-5-20260703-v2:0",
+      ),
+    ).toBe("anthropic");
+    expect(detectBedrockModelFamily("global.amazon.nova-pro-v2:0")).toBe(
+      "amazon",
+    );
+  });
+
+  it("detects prompt caching support for revisioned Nova model names", () => {
+    expect(bedrockSupportsCaching("amazon.nova-pro-v2:0")).toBe(true);
+    expect(bedrockSupportsCaching("amazon.novalite-v2:0")).toBe(false);
   });
 });

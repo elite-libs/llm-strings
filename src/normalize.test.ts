@@ -70,6 +70,21 @@ describe("normalize", () => {
       expect(result.params).toEqual({ stop_sequences: "END" });
     });
 
+    it("applies Anthropic mappings to future and brand-new model families", () => {
+      for (const raw of [
+        "llm://anthropic/sonnet-6.5?max=4096&topk=40&stop=END",
+        "llm://anthropic/fable-6.1?max=4096&topk=40&stop=END",
+      ]) {
+        const { config: result, provider } = normalize(parse(raw));
+        expect(provider).toBe("anthropic");
+        expect(result.params).toEqual({
+          max_tokens: "4096",
+          top_k: "40",
+          stop_sequences: "END",
+        });
+      }
+    });
+
     it("maps seed → random_seed for Mistral", () => {
       const config = parse("llm://api.mistral.ai/mistral-large-latest?seed=42");
       const { config: result } = normalize(config);
@@ -80,6 +95,13 @@ describe("normalize", () => {
       const config = parse("llm://api.openai.com/o3?effort=high");
       const { config: result } = normalize(config);
       expect(result.params).toHaveProperty("reasoning_effort", "high");
+    });
+
+    it("applies OpenAI reasoning mappings to future GPT major versions", () => {
+      const config = parse("llm://openai/gpt-7?temp=0.7&max=4096");
+      const { config: result, provider } = normalize(config);
+      expect(provider).toBe("openai");
+      expect(result.params).toEqual({ max_completion_tokens: "4096" });
     });
 
     it("keeps effort as effort for Anthropic", () => {
@@ -183,6 +205,15 @@ describe("normalize", () => {
       });
     });
 
+    it("applies reasoning rules to suffixed gateway model versions", () => {
+      const config = parse(
+        "llm://openrouter.ai/OpenAI/GPT-5-20260703-preview?temp=0.7&max=4096",
+      );
+      const { config: result, subProvider } = normalize(config);
+      expect(subProvider).toBe("openai");
+      expect(result.params).toEqual({ max_completion_tokens: "4096" });
+    });
+
     it("applies reasoning-family rules to Azure OpenAI aliases", () => {
       const config = parse("llm://azure/o3?temp=0.7&max=4096");
       const { config: result, provider } = normalize(config);
@@ -249,6 +280,17 @@ describe("normalize", () => {
         temperature: "0.5",
         maxTokens: "500",
         topP: "0.9",
+      });
+    });
+
+    it("maps cache for revisioned Bedrock Nova inference profile ARNs", () => {
+      const config = parse(
+        "llm://bedrock/arn:aws:bedrock:us-east-1::inference-profile/global.amazon.nova-pro-v2:0?cache=1h",
+      );
+      const { config: result } = normalize(config);
+      expect(result.params).toEqual({
+        cache_control: "ephemeral",
+        cache_ttl: "1h",
       });
     });
   });

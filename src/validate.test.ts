@@ -30,6 +30,26 @@ describe("validate", () => {
       );
       expect(issues).toEqual([]);
     });
+
+    it("returns no issues for bare future model connection strings", () => {
+      for (const raw of [
+        "llm://openai/gpt-7",
+        "llm://anthropic/sonnet-6.5",
+        "llm://anthropic/fable-6.1",
+      ]) {
+        expect(validate(raw), raw).toEqual([]);
+      }
+    });
+
+    it("returns no issues for params on future model names", () => {
+      for (const raw of [
+        "llm://openai/gpt-7?temp=0.7&max=4096",
+        "llm://anthropic/sonnet-6.5?temp=0.5&max=4096&top_k=40",
+        "llm://anthropic/fable-6.1?temp=0.5&max=4096&top_k=40",
+      ]) {
+        expect(validate(raw), raw).toEqual([]);
+      }
+    });
   });
 
   describe("out of range", () => {
@@ -231,6 +251,13 @@ describe("validate", () => {
 
     it("allows temperature to be normalized away on reasoning models via OpenRouter", () => {
       const issues = validate("llm://openrouter.ai/openai/o3?temp=0.7");
+      expect(issues).toEqual([]);
+    });
+
+    it("uses fuzzy reasoning matching for suffixed OpenRouter model versions", () => {
+      const issues = validate(
+        "llm://openrouter.ai/OpenAI/GPT-5-20260703-preview?temp=0.7&max=4096",
+      );
       expect(issues).toEqual([]);
     });
 

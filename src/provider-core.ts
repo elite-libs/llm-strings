@@ -244,6 +244,32 @@ function hostHasLabelPrefix(host: string, ...prefixes: string[]): boolean {
   );
 }
 
+const MODEL_FAMILY_DELIMITERS = new Set(["-", "."]);
+
+function normalizeModelForMatching(model: string): string {
+  return model.trim().toLowerCase();
+}
+
+function modelLeafName(model: string): string {
+  const normalized = normalizeModelForMatching(model);
+  const slash = normalized.lastIndexOf("/");
+  return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+}
+
+export function modelMatchesFamily(model: string, family: string): boolean {
+  const name = modelLeafName(model);
+  const normalizedFamily = normalizeModelForMatching(family);
+  if (!name || !normalizedFamily) return false;
+  if (name === normalizedFamily) return true;
+
+  const delimiter = name[normalizedFamily.length];
+  return (
+    name.startsWith(normalizedFamily) &&
+    delimiter !== undefined &&
+    MODEL_FAMILY_DELIMITERS.has(delimiter)
+  );
+}
+
 export function detectProvider(host: string): Provider | undefined {
   host = canonicalHostName(host);
 
@@ -1486,11 +1512,13 @@ export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
 
 /** OpenAI reasoning models don't support standard sampling params. */
 export function isReasoningModel(model: string): boolean {
-  // Strip gateway prefix: "openai/o3" -> "o3"
-  const name = (model.includes("/") ? model.split("/").pop()! : model)
-    .toLowerCase()
-    .trim();
-  return /^o\d+(?:$|[-.])/.test(name) || /^gpt-5(?:$|[.-])/.test(name);
+  const name = modelLeafName(model);
+  const oSeries = name.match(/^o\d+/)?.[0];
+  const gptSeries = name.match(/^gpt-[5-9]/)?.[0];
+  return (
+    (oSeries ? modelMatchesFamily(name, oSeries) : false) ||
+    (gptSeries ? modelMatchesFamily(name, gptSeries) : false)
+  );
 }
 
 /** Providers that can route to OpenAI models (and need reasoning-model checks). */
@@ -1516,15 +1544,17 @@ export function isGatewayProvider(provider: Provider): boolean {
 export function detectGatewaySubProvider(model: string): Provider | undefined {
   const slash = model.indexOf("/");
   if (slash < 1) return undefined;
-  const prefix = model.slice(0, slash);
-  const direct: Provider[] = [
-    "openai",
-    "anthropic",
-    "google",
-    "mistral",
-    "cohere",
-  ];
-  return direct.find((p) => p === prefix);
+  const prefix = normalizeModelForMatching(model.slice(0, slash));
+  const direct: Partial<Record<string, Provider>> = {
+    openai: "openai",
+    anthropic: "anthropic",
+    google: "google",
+    vertex: "google",
+    "google-vertex": "google",
+    mistral: "mistral",
+    cohere: "cohere",
+  };
+  return direct[prefix];
 }
 
 export const REASONING_MODEL_UNSUPPORTED = new Set([
@@ -1551,16 +1581,6 @@ export type BedrockModelFamily =
 export function detectBedrockModelFamily(
   model: string,
 ): BedrockModelFamily | undefined {
-  // Handle cross-region inference profiles (e.g. "us.anthropic.claude-sonnet-4-5...")
-  // and global inference profiles (e.g. "global.anthropic.claude-sonnet-4-5...")
-  const parts = model.split(".");
-
-  // If first part is a region prefix (us, eu, apac) or global, skip it
-  let prefix = parts[0];
-  if (["us", "eu", "apac", "global"].includes(prefix) && parts.length > 1) {
-    prefix = parts[1];
-  }
-
   const families: BedrockModelFamily[] = [
     "anthropic",
     "meta",
@@ -1569,14 +1589,20 @@ export function detectBedrockModelFamily(
     "cohere",
     "ai21",
   ];
-  return families.find((f) => prefix === f);
+  const parts = modelLeafName(model).split(".");
+  return families.find((family) => parts.includes(family));
 }
 
 /** Whether a Bedrock model supports prompt caching (Claude and Nova only). */
 export function bedrockSupportsCaching(model: string): boolean {
   const family = detectBedrockModelFamily(model);
   if (family === "anthropic") return true;
-  if (family === "amazon" && model.includes("nova")) return true;
+  if (family === "amazon") {
+    const parts = modelLeafName(model).split(".");
+    const amazonIndex = parts.indexOf("amazon");
+    const modelName = amazonIndex >= 0 ? parts[amazonIndex + 1] : undefined;
+    return modelName ? modelMatchesFamily(modelName, "nova") : false;
+  }
   return false;
 }
 
