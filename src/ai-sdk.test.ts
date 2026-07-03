@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parse } from "./index.js";
 
+function withParams(base: string, params: Record<string, string>): string {
+  return `${base}?${new URLSearchParams(params).toString()}`;
+}
+
 describe("createAiSdkProviderOptions", () => {
   it("loads from the AI SDK adapter submodule with dynamic import", async () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
@@ -196,5 +200,99 @@ describe("createAiSdkProviderOptions", () => {
     );
 
     expect(result.providerOptions).toEqual({});
+  });
+
+  it("maps advanced provider option branches", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+    const opts = (input: string) =>
+      createAiSdkProviderOptions(input).providerOptions;
+    const outputs = [
+      opts(
+        withParams("llm://api.openai.com/gpt-4o", {
+          include: '["reasoning.encrypted_content",3]',
+          metadata: '{"team":"eval"}',
+          allowed_tools: '{"mode":"auto"}',
+          parallel_tool_calls: "false",
+        }),
+      ),
+      opts(
+        withParams("llm://api.anthropic.com/claude-sonnet-4-5", {
+          thinking: '{"type":"enabled","budgetTokens":64}',
+          thinking_budget: "1024",
+          anthropic_beta: "tools,context",
+          mcp_servers: '{"docs":{"url":"https://example.com"}}',
+        }),
+      ),
+      opts(
+        withParams("llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0", {
+          reasoning_config: '{"type":"enabled","budgetTokens":256}',
+          budget_tokens: "512",
+          additional_model_request_fields: '{"top_k":40}',
+          anthropic_beta: "tools,context",
+        }),
+      ),
+      opts(
+        withParams("llm://openrouter.ai/openai/gpt-4o", {
+          models: "openai/gpt-4o,anthropic/claude-sonnet-4",
+          provider: '{"require_parameters":true}',
+          "provider.sort": '{"field":"latency"}',
+          plugins: '["web",{"id":"compress"}]',
+          reasoning: '{"effort":"low"}',
+          reasoning_enabled: "true",
+          reasoning_exclude: "false",
+          max_reasoning_tokens: "512",
+          user: "user_1",
+        }),
+      ),
+    ];
+
+    expect([
+      outputs[0].openai?.include,
+      outputs[1].anthropic?.thinking,
+      outputs[2].bedrock?.reasoningConfig,
+      outputs[3].openrouter?.reasoning,
+      createAiSdkProviderOptions("llm://vercel/openai/gpt-4o?order=openai", {
+        includeGatewayOptions: false,
+      }).providerOptions,
+    ]).toEqual([
+      ["reasoning.encrypted_content"],
+      { type: "enabled", budgetTokens: 1024 },
+      { type: "enabled", budgetTokens: 512 },
+      {
+        effort: '{"effort":"low"}',
+        enabled: true,
+        exclude: false,
+        max_tokens: 512,
+      },
+      {},
+    ]);
+  });
+
+  it("maps additional provider option keys", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+    const openAiCompatible = "azure groq deepinfra together".split(" ");
+    const flexible =
+      "replicate prodia luma bytedance kling elevenlabs assemblyai deepgram gladia lmnt hume revai".split(
+        " ",
+      );
+
+    expect(
+      openAiCompatible.map(
+        (alias) =>
+          Object.keys(
+            createAiSdkProviderOptions(`llm://${alias}/gpt-4o?effort=high`)
+              .providerOptions,
+          )[0],
+      ),
+    ).toEqual(openAiCompatible);
+    expect(
+      flexible.map((alias) => {
+        const options = createAiSdkProviderOptions(
+          `llm://${alias}/model?custom_option=true&count=2&payload=%7B%22a%22%3A1%7D`,
+        ).providerOptions;
+        const key = Object.keys(options)[0];
+        return [key, options[key].payload];
+      }),
+    ).toEqual(flexible.map((key) => [key, { a: 1 }]));
   });
 });
