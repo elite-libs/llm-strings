@@ -3,11 +3,8 @@ import { normalize } from "./normalize.js";
 import {
   PARAM_SPECS,
   PROVIDER_PARAMS,
-  REASONING_MODEL_UNSUPPORTED,
   bedrockSupportsCaching,
-  canHostOpenAIModels,
   detectBedrockModelFamily,
-  isReasoningModel,
   type ParamSpec,
   type Provider,
 } from "./provider-core.js";
@@ -20,7 +17,7 @@ export interface ValidationIssue {
 }
 
 export interface ValidateOptions {
-  /** Promote warnings (unknown provider, unknown params) to errors. */
+  /** Report unknown providers/params as errors instead of allowing model-specific params through. */
   strict?: boolean;
 }
 
@@ -113,25 +110,14 @@ export function validate(
     : new Set(Object.values(PROVIDER_PARAMS[provider]));
 
   for (const [key, value] of Object.entries(config.params)) {
+    const subProviderSpecResult =
+      subProvider && gatewayReverseMap
+        ? lookupSubProviderSpec(key, gatewayReverseMap, subProvider)
+        : undefined;
     const gatewayOwnSpec =
-      subProvider && gatewayReverseMap?.[key] === undefined
+      subProvider && !subProviderSpecResult?.spec
         ? PARAM_SPECS[provider]?.[key]
         : undefined;
-
-    // Check for OpenAI reasoning model restrictions (direct or via gateway)
-    if (
-      canHostOpenAIModels(provider) &&
-      isReasoningModel(config.model) &&
-      REASONING_MODEL_UNSUPPORTED.has(key)
-    ) {
-      issues.push({
-        param: key,
-        value,
-        message: `"${key}" is not supported by OpenAI reasoning model "${config.model}". Use "reasoning_effort" instead of temperature for controlling output.`,
-        severity: "error",
-      });
-      continue;
-    }
 
     // Bedrock model-family-specific checks
     if (provider === "bedrock") {
@@ -166,24 +152,25 @@ export function validate(
       }
     }
 
-    // Check if param is known for this provider (or sub-provider)
+    // Check if param is known for this provider (or sub-provider).
+    // Unknown params are allowed by default so model-specific inputs can pass
+    // through without requiring a library release. Strict mode keeps typo checks.
     if (!knownParams.has(key) && !specs[key] && !gatewayOwnSpec) {
-      issues.push({
-        param: key,
-        value,
-        message: `Unknown param "${key}" for ${effectiveProvider}.`,
-        severity: options.strict ? "error" : "warning",
-      });
+      if (options.strict) {
+        issues.push({
+          param: key,
+          value,
+          message: `Unknown param "${key}" for ${effectiveProvider}.`,
+          severity: "error",
+        });
+      }
       continue;
     }
 
     // Look up the spec — for gateways with a sub-provider, map through
     // canonical names to find the sub-provider's spec
-    let spec: ParamSpec | undefined = gatewayOwnSpec ?? specs[key];
-    if (subProvider && gatewayReverseMap && !spec) {
-      const result = lookupSubProviderSpec(key, gatewayReverseMap, subProvider);
-      spec = result.spec;
-    }
+    const spec: ParamSpec | undefined =
+      subProviderSpecResult?.spec ?? gatewayOwnSpec ?? specs[key];
     if (!spec) continue;
 
     // Anthropic (and Bedrock Claude, and Anthropic via gateway) mutual exclusion for temperature/top_p

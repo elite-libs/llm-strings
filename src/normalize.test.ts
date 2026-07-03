@@ -165,6 +165,30 @@ describe("normalize", () => {
       const { config: result } = normalize(config);
       expect(result.params).toEqual({ max_completion_tokens: "4096" });
     });
+
+    it("uses fuzzy family matching for future o-series versions", () => {
+      const config = parse("llm://api.openai.com/o9-preview?max=4096");
+      const { config: result } = normalize(config);
+      expect(result.params).toEqual({ max_completion_tokens: "4096" });
+    });
+
+    it("drops unsupported sampling params for reasoning model families", () => {
+      const config = parse(
+        "llm://api.openai.com/gpt-5.12-preview?temp=0.7&top_p=0.9&top_k=40&max=4096&custom_flag=true",
+      );
+      const { config: result } = normalize(config);
+      expect(result.params).toEqual({
+        max_completion_tokens: "4096",
+        custom_flag: "true",
+      });
+    });
+
+    it("applies reasoning-family rules to Azure OpenAI aliases", () => {
+      const config = parse("llm://azure/o3?temp=0.7&max=4096");
+      const { config: result, provider } = normalize(config);
+      expect(provider).toBe("azure");
+      expect(result.params).toEqual({ max_completion_tokens: "4096" });
+    });
   });
 
   describe("AWS Bedrock", () => {

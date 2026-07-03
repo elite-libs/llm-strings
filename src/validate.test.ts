@@ -125,36 +125,28 @@ describe("validate", () => {
   });
 
   describe("unknown params", () => {
-    it("warns about unknown params", () => {
+    it("allows unknown params by default", () => {
       const issues = validate(
         "llm://api.openai.com/gpt-5.5?made_up_param=hello",
       );
-      expect(issues).toHaveLength(1);
-      expect(issues[0].severity).toBe("warning");
-      expect(issues[0].message).toContain("Unknown");
+      expect(issues).toEqual([]);
     });
   });
 
   describe("reasoning model restrictions", () => {
-    it("flags temperature on OpenAI reasoning models", () => {
+    it("allows temperature to be normalized away on OpenAI reasoning models", () => {
       const issues = validate("llm://api.openai.com/o3?temp=0.7");
-      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
-        true,
-      );
+      expect(issues).toEqual([]);
     });
 
-    it("flags top_p on OpenAI reasoning models", () => {
+    it("allows top_p to be normalized away on OpenAI reasoning models", () => {
       const issues = validate("llm://api.openai.com/o3-mini?top_p=0.9");
-      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
-        true,
-      );
+      expect(issues).toEqual([]);
     });
 
-    it("flags temperature on GPT-5 reasoning models", () => {
-      const issues = validate("llm://api.openai.com/gpt-5.5?temp=0.7");
-      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
-        true,
-      );
+    it("uses fuzzy GPT-5 family matching for reasoning restrictions", () => {
+      const issues = validate("llm://api.openai.com/gpt-5.12-preview?temp=0.7");
+      expect(issues).toEqual([]);
     });
 
     it("allows effort on OpenAI reasoning models", () => {
@@ -237,19 +229,22 @@ describe("validate", () => {
       expect(issues[0].message).toContain("<= 2");
     });
 
-    it("flags temperature on reasoning models via OpenRouter", () => {
+    it("allows temperature to be normalized away on reasoning models via OpenRouter", () => {
       const issues = validate("llm://openrouter.ai/openai/o3?temp=0.7");
-      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
-        true,
+      expect(issues).toEqual([]);
+    });
+
+    it("accepts OpenRouter routing and transform params", () => {
+      const issues = validate(
+        "llm://openrouter.ai/openai/gpt-4o?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
       );
+      expect(issues).toEqual([]);
     });
   });
 
   describe("Vercel AI Gateway", () => {
     it("detects and validates Vercel gateway params", () => {
-      const issues = validate(
-        "llm://vercel/openai/gpt-4o?temp=0.7&max=1500",
-      );
+      const issues = validate("llm://vercel/openai/gpt-4o?temp=0.7&max=1500");
       expect(issues).toEqual([]);
     });
 
@@ -278,13 +273,11 @@ describe("validate", () => {
       expect(issues[0].message).toContain("number");
     });
 
-    it("flags temperature on reasoning models via Vercel", () => {
+    it("allows temperature to be normalized away on reasoning models via Vercel", () => {
       const issues = validate(
         "llm://gateway.ai.vercel.sh/openai/o4-mini?temp=0.5",
       );
-      expect(issues.some((i) => i.message.includes("not supported"))).toBe(
-        true,
-      );
+      expect(issues).toEqual([]);
     });
   });
 
@@ -325,12 +318,29 @@ describe("validate", () => {
       expect(issues).toEqual([]);
     });
 
-    it("rejects unsupported effort values for Anthropic via gateway", () => {
+    it("rejects unknown effort values for Anthropic via gateway", () => {
       const issues = validate(
-        "llm://openrouter.ai/anthropic/claude-sonnet-4-5?effort=none",
+        "llm://openrouter.ai/anthropic/claude-sonnet-4-5?effort=extreme",
       );
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("must be one of");
+    });
+  });
+
+  describe("flexible media provider params", () => {
+    it("accepts common fal params and passes unknown model inputs by default", () => {
+      const issues = validate(
+        "llm://fal/fal-ai/flux-pro?image_size=square_hd&num_images=2&model_specific=ok",
+      );
+      expect(issues).toEqual([]);
+    });
+
+    it("uses strict mode to catch unknown media provider params", () => {
+      const issues = validate("llm://fal/fal-ai/flux-pro?image_szie=square", {
+        strict: true,
+      });
+      expect(issues).toHaveLength(1);
+      expect(issues[0].message).toContain("Unknown param");
     });
   });
 

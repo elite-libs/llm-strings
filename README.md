@@ -21,7 +21,7 @@
 ![The parts of an LLM connection string](./assets/inline-url-diagram-dark.svg)
 
 ```ini
-llm://openai/gpt-5.5?effort=medium&max=2000
+llm://openai/gpt-5.5?effort=medium&maxTokens=2000
 llm://anthropic/claude-opus-4-8?cache=5m&effort=max
 llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096
 llm://openrouter/anthropic/claude-sonnet-4-5?temp=0.7&max=2000
@@ -42,8 +42,8 @@ proposal by Dan Levy. See the [draft IETF RFC for `llm://`](https://datatracker.
 
 - **One config string** for host, model, credentials, and generation params.
 - **Provider-native output** from provider-agnostic input like `temp=0.7&max=2000`.
-- **Early validation** for ranges, unsupported params, mutual exclusions, Bedrock
-  model-family rules, and OpenAI reasoning-model restrictions.
+- **Early validation** for ranges, mutual exclusions, Bedrock model-family
+  rules, and OpenAI reasoning-family normalization.
 - **Short aliases** like `openai`, `anthropic`, `google`, `bedrock`, `groq`, and
   `openrouter`, with env overrides for private or regional endpoints.
 - **AI SDK providerOptions** generation for provider-specific settings.
@@ -222,10 +222,13 @@ validate("llm://openai/gpt-4o?temp=3.0");
 // [{ param: "temperature", message: "\"temperature\" must be <= 2, got 3", ... }]
 
 validate("llm://openai/gpt-5.5?temp=0.7&max=2000");
-// [{ param: "temperature", message: "\"temperature\" is not supported by OpenAI reasoning model \"gpt-5.5\"...", ... }]
+// [] — temperature is a known unsupported reasoning-family param, so normalize() drops it
 
-validate("llm://custom-api.example.com/model?temp=0.7", { strict: true });
-// [{ param: "host", severity: "error", message: "Unknown provider..." }]
+validate("llm://fal/fal-ai/flux-pro?future_model_param=1");
+// [] — unknown params pass through by default for model-specific schemas
+
+validate("llm://fal/fal-ai/flux-pro?future_model_param=1", { strict: true });
+// [{ param: "future_model_param", severity: "error", message: "Unknown param..." }]
 ```
 
 ### See exactly what changed
@@ -435,8 +438,8 @@ Normalizes params for the detected provider:
    `maxOutputTokens` for Google.
 3. Normalizes cache values such as `cache=5m` -> `cache_control=ephemeral` and
    `cache_ttl=5m`.
-4. Adjusts OpenAI reasoning-model params such as `max_tokens` ->
-   `max_completion_tokens`.
+4. Adjusts OpenAI reasoning-family params such as `max_tokens` ->
+   `max_completion_tokens` and drops known unsupported sampling params.
 
 Pass `{ verbose: true }` to get a `changes` array that documents each
 transformation.
@@ -445,11 +448,12 @@ transformation.
 
 Parses, normalizes, and validates a connection string. Returns `[]` when the
 config is valid. Checks include type correctness, numeric ranges, enum values,
-unknown params, unknown providers, Anthropic `temperature` + `top_p` mutual
-exclusion, OpenAI reasoning model restrictions, and Bedrock model-family rules.
+unknown providers, Anthropic `temperature` + `top_p` mutual exclusion,
+OpenAI reasoning-family normalization, and Bedrock model-family rules. Unknown
+params are allowed by default so new model-specific schemas can pass through.
 
-Pass `{ strict: true }` to promote warnings, such as unknown providers or
-unknown params, to errors.
+Pass `{ strict: true }` to report unknown providers or unknown params as
+errors.
 
 ### `createAiSdkProviderOptions(input, options?): AiSdkProviderOptionsResult`
 

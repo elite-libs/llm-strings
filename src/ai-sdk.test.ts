@@ -167,6 +167,27 @@ describe("createAiSdkProviderOptions", () => {
     });
   });
 
+  it("maps OpenRouter routing params into provider options", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      parse(
+        "llm://openrouter.ai/openai/gpt-4o?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
+      ),
+    );
+
+    expect(result.providerOptions).toEqual({
+      openrouter: {
+        provider: {
+          order: ["openai", "anthropic"],
+          allow_fallbacks: false,
+        },
+        transforms: ["middle-out"],
+        plugins: ["context-compression"],
+      },
+    });
+  });
+
   it("does not put common generation settings into providerOptions", async () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 

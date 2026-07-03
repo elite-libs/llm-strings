@@ -74,6 +74,12 @@ describe("PROVIDER_META", () => {
       expect(detectProvider(meta.host)).toBe(meta.id);
     }
   });
+
+  it("does not detect providers from lookalike host substrings", () => {
+    expect(detectProvider("my-anthropic-clone.com")).toBeUndefined();
+    expect(detectProvider("openrouter.example.com")).toBeUndefined();
+    expect(detectProvider("luma-preview.example.com")).toBeUndefined();
+  });
 });
 
 describe("host aliases", () => {
@@ -276,11 +282,14 @@ describe("detectGatewaySubProvider", () => {
 });
 
 describe("isReasoningModel", () => {
-  it("detects o-series and GPT-5 reasoning model IDs", () => {
+  it("detects reasoning model family prefixes", () => {
     expect(isReasoningModel("o3")).toBe(true);
     expect(isReasoningModel("o4-mini")).toBe(true);
+    expect(isReasoningModel("o9-preview")).toBe(true);
     expect(isReasoningModel("gpt-5.5")).toBe(true);
+    expect(isReasoningModel("gpt-5.12-preview")).toBe(true);
     expect(isReasoningModel("openai/gpt-5.5")).toBe(true);
     expect(isReasoningModel("gpt-4o")).toBe(false);
+    expect(isReasoningModel("gpt-50")).toBe(false);
   });
 });

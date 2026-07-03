@@ -3,8 +3,8 @@ import {
   ALIASES,
   CACHE_TTLS,
   CACHE_VALUES,
-  DURATION_RE,
   PROVIDER_PARAMS,
+  REASONING_MODEL_UNSUPPORTED,
   bedrockSupportsCaching,
   canHostOpenAIModels,
   detectGatewaySubProvider,
@@ -14,6 +14,8 @@ import {
   providerFromHostAlias,
   type Provider,
 } from "./provider-core.js";
+
+const DURATION_RE = /^\d+[mh]$/;
 
 export interface NormalizeChange {
   from: string;
@@ -162,6 +164,23 @@ export function normalize(
         });
       }
       key = "max_completion_tokens";
+    }
+
+    if (
+      provider &&
+      canHostOpenAIModels(provider) &&
+      isReasoningModel(config.model) &&
+      REASONING_MODEL_UNSUPPORTED.has(key)
+    ) {
+      if (options.verbose) {
+        changes.push({
+          from: key,
+          to: "(dropped)",
+          value,
+          reason: `${provider} reasoning model "${config.model}" does not support "${key}"`,
+        });
+      }
+      continue;
     }
 
     params[key] = value;
