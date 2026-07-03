@@ -400,21 +400,93 @@ export const ALIASES: Record<string, string> = {
   cacheControl: "cache",
   cachePoint: "cache",
   cache_point: "cache",
+
+  // Vercel gateway params (camelCase → snake_case)
+  zeroDataRetention: "zero_data_retention",
+  disallowPromptTraining: "disallow_prompt_training",
+  hipaaCompliant: "hipaa_compliant",
+  quotaEntityId: "quota_entity_id",
+  providerTimeouts: "provider_timeouts",
 };
 
-const OPENAI_COMPATIBLE_PARAMS: Record<string, string> = {
-  temperature: "temperature",
-  max_tokens: "max_tokens",
-  max_completion_tokens: "max_completion_tokens",
-  top_p: "top_p",
-  top_k: "top_k",
-  frequency_penalty: "frequency_penalty",
-  presence_penalty: "presence_penalty",
-  stop: "stop",
-  n: "n",
-  seed: "seed",
-  stream: "stream",
-  effort: "reasoning_effort",
+/** Validation spec for a single provider parameter. */
+export interface ParamSpec {
+  type: "number" | "string" | "boolean";
+  min?: number;
+  max?: number;
+  values?: string[];
+  default?: string | number | boolean;
+  description?: string;
+}
+
+/**
+ * All per-provider configuration in one place.
+ * To add a new provider: add it to the Provider type, HOST_ALIASES,
+ * detectProvider, and add an entry to PROVIDER_DEFINITIONS below.
+ */
+export interface ProviderDefinition {
+  /** Canonical param name → provider-specific API param name. */
+  params: Record<string, string>;
+  /** Provider-specific param name → validation spec. */
+  specs: Record<string, ParamSpec>;
+  /** Cache value accepted by this provider (e.g. "ephemeral"). Absent = automatic or unsupported. */
+  cacheValue?: string;
+  /** Valid cache TTL strings. Absent = no TTL selection. */
+  cacheTtls?: string[];
+}
+
+const REASONING_EFFORT_VALUES = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
+
+// ── Shared building blocks ──────────────────────────────────────────────────
+
+const OPENAI_COMPATIBLE_DEF = {
+  params: {
+    temperature: "temperature",
+    max_tokens: "max_tokens",
+    max_completion_tokens: "max_completion_tokens",
+    top_p: "top_p",
+    top_k: "top_k",
+    frequency_penalty: "frequency_penalty",
+    presence_penalty: "presence_penalty",
+    stop: "stop",
+    n: "n",
+    seed: "seed",
+    stream: "stream",
+    effort: "reasoning_effort",
+  },
+  specs: {
+    temperature: { type: "number" as const, min: 0, max: 2, default: 0.7, description: "Controls randomness" },
+    max_tokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum output tokens" },
+    max_completion_tokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum completion tokens (reasoning models)" },
+    top_p: { type: "number" as const, min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+    top_k: { type: "number" as const, min: 0, default: 40, description: "Top-K sampling" },
+    frequency_penalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
+    presence_penalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    stop: { type: "string" as const, description: "Stop sequences" },
+    n: { type: "number" as const, min: 1, default: 1, description: "Completions count" },
+    seed: { type: "number" as const, description: "Random seed" },
+    stream: { type: "boolean" as const, default: false, description: "Stream response" },
+    reasoning_effort: { type: "string" as const, values: REASONING_EFFORT_VALUES, default: "medium", description: "Reasoning effort" },
+  },
+};
+
+const COMMON_IMAGE_SPECS: Record<string, ParamSpec> = {
+  prompt: { type: "string", description: "Prompt" },
+  negative_prompt: { type: "string", description: "Negative prompt" },
+  seed: { type: "number", description: "Random seed" },
+  image_size: { type: "string", description: "Output image size" },
+  aspect_ratio: { type: "string", description: "Output aspect ratio" },
+  output_format: { type: "string", description: "Output format" },
+  width: { type: "number", min: 1, description: "Image width" },
+  height: { type: "number", min: 1, description: "Image height" },
 };
 
 const COMMON_IMAGE_PARAMS: Record<string, string> = {
@@ -428,131 +500,109 @@ const COMMON_IMAGE_PARAMS: Record<string, string> = {
   height: "height",
 };
 
-const FAL_PARAMS: Record<string, string> = {
-  ...COMMON_IMAGE_PARAMS,
-  num_images: "num_images",
-  enable_safety_checker: "enable_safety_checker",
-  enable_safety_checks: "enable_safety_checks",
-  enable_prompt_expansion: "enable_prompt_expansion",
-  expand_prompt: "expand_prompt",
-};
-
-const REPLICATE_PARAMS: Record<string, string> = {
-  ...COMMON_IMAGE_PARAMS,
-  input: "input",
-  version: "version",
-  num_outputs: "num_outputs",
-  num_inference_steps: "num_inference_steps",
-  guidance_scale: "guidance_scale",
-  stream: "stream",
-  webhook: "webhook",
-  webhook_events_filter: "webhook_events_filter",
-};
-
-const PRODIA_PARAMS: Record<string, string> = {
-  ...COMMON_IMAGE_PARAMS,
-  model: "model",
-  style_preset: "style_preset",
-  steps: "steps",
-  cfg_scale: "cfg_scale",
-  upscale: "upscale",
-  sampler: "sampler",
-  type: "type",
-  config: "config",
-  price: "price",
-};
-
-const LUMA_PARAMS: Record<string, string> = {
-  prompt: "prompt",
-  model: "model",
-  aspect_ratio: "aspect_ratio",
-  keyframes: "keyframes",
-  loop: "loop",
-  duration: "duration",
-  type: "type",
-  image_ref: "image_ref",
-  video: "video",
-  source: "source",
-};
-
-const OPENROUTER_ROUTING_PARAMS: Record<string, string> = {
-  provider: "provider",
-  order: "order",
-  "provider.order": "provider.order",
-  only: "only",
-  "provider.only": "provider.only",
-  ignore: "ignore",
-  "provider.ignore": "provider.ignore",
-  allow_fallbacks: "allow_fallbacks",
-  "provider.allow_fallbacks": "provider.allow_fallbacks",
-  require_parameters: "require_parameters",
-  "provider.require_parameters": "provider.require_parameters",
-  data_collection: "data_collection",
-  "provider.data_collection": "provider.data_collection",
-  zdr: "zdr",
-  "provider.zdr": "provider.zdr",
-  enforce_distillable_text: "enforce_distillable_text",
-  "provider.enforce_distillable_text": "provider.enforce_distillable_text",
-  quantizations: "quantizations",
-  "provider.quantizations": "provider.quantizations",
-  sort: "sort",
-  "provider.sort": "provider.sort",
-  preferred_min_throughput: "preferred_min_throughput",
-  "provider.preferred_min_throughput": "provider.preferred_min_throughput",
-  preferred_max_latency: "preferred_max_latency",
-  "provider.preferred_max_latency": "provider.preferred_max_latency",
-  max_price: "max_price",
-  "provider.max_price": "provider.max_price",
-  transforms: "transforms",
-  plugins: "plugins",
-};
-
-const GOOGLE_COMPATIBLE_PARAMS: Record<string, string> = {
-  temperature: "temperature",
-  max_tokens: "maxOutputTokens",
-  top_p: "topP",
-  top_k: "topK",
-  frequency_penalty: "frequencyPenalty",
-  presence_penalty: "presencePenalty",
-  stop: "stopSequences",
-  n: "candidateCount",
-  stream: "stream",
-  seed: "seed",
-  responseMimeType: "responseMimeType",
-  responseSchema: "responseSchema",
-};
-
-/**
- * Canonical param name → provider-specific API param name.
- * Only includes params the provider actually supports.
- */
-export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> = {
-  openai: {
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    max_completion_tokens: "max_completion_tokens",
-    top_p: "top_p",
-    frequency_penalty: "frequency_penalty",
-    presence_penalty: "presence_penalty",
-    stop: "stop",
-    n: "n",
-    seed: "seed",
-    stream: "stream",
-    effort: "reasoning_effort",
+const FAL_DEF = {
+  params: {
+    ...COMMON_IMAGE_PARAMS,
+    num_images: "num_images",
+    enable_safety_checker: "enable_safety_checker",
+    enable_safety_checks: "enable_safety_checks",
+    enable_prompt_expansion: "enable_prompt_expansion",
+    expand_prompt: "expand_prompt",
   },
-  azure: OPENAI_COMPATIBLE_PARAMS,
-  anthropic: {
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    top_p: "top_p",
-    top_k: "top_k",
-    stop: "stop_sequences",
-    stream: "stream",
-    effort: "effort",
-    cache: "cache_control",
-    cache_ttl: "cache_ttl",
+  specs: {
+    ...COMMON_IMAGE_SPECS,
+    num_images: { type: "number" as const, min: 1, description: "Number of images to generate" },
+    enable_safety_checker: { type: "boolean" as const, description: "Enable safety checker" },
+    enable_safety_checks: { type: "boolean" as const, description: "Enable safety checker" },
+    enable_prompt_expansion: { type: "boolean" as const, description: "Enable prompt expansion" },
+    expand_prompt: { type: "boolean" as const, description: "Enable prompt expansion" },
+    output_format: { type: "string" as const, values: ["jpeg", "jpg", "png", "webp", "gif"], description: "Output image format" },
   },
-  google: {
+};
+
+const REPLICATE_DEF = {
+  params: {
+    ...COMMON_IMAGE_PARAMS,
+    input: "input",
+    version: "version",
+    num_outputs: "num_outputs",
+    num_inference_steps: "num_inference_steps",
+    guidance_scale: "guidance_scale",
+    stream: "stream",
+    webhook: "webhook",
+    webhook_events_filter: "webhook_events_filter",
+  },
+  specs: {
+    ...COMMON_IMAGE_SPECS,
+    input: { type: "string" as const, description: "Model input object" },
+    version: { type: "string" as const, description: "Model version" },
+    num_outputs: { type: "number" as const, min: 1, description: "Number of outputs to generate" },
+    num_inference_steps: { type: "number" as const, min: 1, description: "Number of inference steps" },
+    guidance_scale: { type: "number" as const, min: 0, description: "Guidance scale" },
+    stream: { type: "boolean" as const, description: "Request streaming output" },
+    webhook: { type: "string" as const, description: "Webhook URL" },
+    webhook_events_filter: { type: "string" as const, description: "Webhook events filter" },
+  },
+};
+
+const PRODIA_DEF = {
+  params: {
+    ...COMMON_IMAGE_PARAMS,
+    model: "model",
+    style_preset: "style_preset",
+    steps: "steps",
+    cfg_scale: "cfg_scale",
+    upscale: "upscale",
+    sampler: "sampler",
+    type: "type",
+    config: "config",
+    price: "price",
+  },
+  specs: {
+    ...COMMON_IMAGE_SPECS,
+    model: { type: "string" as const, description: "Model name" },
+    style_preset: { type: "string" as const, description: "Style preset" },
+    steps: { type: "number" as const, min: 1, description: "Generation steps" },
+    cfg_scale: { type: "number" as const, min: 0, description: "CFG scale" },
+    upscale: { type: "boolean" as const, description: "Enable 2x upscale" },
+    sampler: { type: "string" as const, description: "Sampler" },
+    width: { type: "number" as const, min: 1, max: 1024, description: "Image width" },
+    height: { type: "number" as const, min: 1, max: 1024, description: "Image height" },
+    type: { type: "string" as const, description: "Prodia v2 job type" },
+    config: { type: "string" as const, description: "Prodia v2 job config" },
+    price: { type: "boolean" as const, description: "Include Prodia v2 job price" },
+  },
+};
+
+const LUMA_DEF = {
+  params: {
+    prompt: "prompt",
+    model: "model",
+    aspect_ratio: "aspect_ratio",
+    keyframes: "keyframes",
+    loop: "loop",
+    duration: "duration",
+    type: "type",
+    image_ref: "image_ref",
+    video: "video",
+    source: "source",
+  },
+  specs: {
+    prompt: { type: "string" as const, description: "Prompt" },
+    model: { type: "string" as const, description: "Model name" },
+    aspect_ratio: { type: "string" as const, description: "Output aspect ratio" },
+    keyframes: { type: "string" as const, description: "Generation keyframes" },
+    loop: { type: "boolean" as const, description: "Generate a looping video" },
+    duration: { type: "string" as const, description: "Generation duration" },
+    type: { type: "string" as const, description: "Generation type" },
+    image_ref: { type: "string" as const, description: "Image reference" },
+    video: { type: "string" as const, description: "Video options" },
+    source: { type: "string" as const, description: "Source generation or media" },
+  },
+};
+
+const GOOGLE_COMPATIBLE_DEF = {
+  params: {
     temperature: "temperature",
     max_tokens: "maxOutputTokens",
     top_p: "topP",
@@ -566,958 +616,315 @@ export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> = {
     responseMimeType: "responseMimeType",
     responseSchema: "responseSchema",
   },
-  "google-vertex": GOOGLE_COMPATIBLE_PARAMS,
+  specs: {
+    temperature: { type: "number" as const, min: 0, max: 2, default: 0.7, description: "Controls randomness" },
+    maxOutputTokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum output tokens" },
+    topP: { type: "number" as const, min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+    topK: { type: "number" as const, min: 0, default: 40, description: "Top-K sampling" },
+    frequencyPenalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
+    presencePenalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    stopSequences: { type: "string" as const, description: "Stop sequences" },
+    candidateCount: { type: "number" as const, min: 1, default: 1, description: "Candidate count" },
+    stream: { type: "boolean" as const, default: false, description: "Stream response" },
+    seed: { type: "number" as const, description: "Random seed" },
+    responseMimeType: { type: "string" as const, description: "Response MIME type" },
+    responseSchema: { type: "string" as const, description: "Response schema" },
+  },
+};
+
+// OpenRouter routing params — only the canonical provider.X forms.
+// Shorthand forms (e.g. "order") can be passed through as-is without explicit mapping.
+const OPENROUTER_ROUTING_DEF = {
+  params: {
+    provider: "provider",
+    "provider.order": "provider.order",
+    "provider.only": "provider.only",
+    "provider.ignore": "provider.ignore",
+    "provider.allow_fallbacks": "provider.allow_fallbacks",
+    "provider.require_parameters": "provider.require_parameters",
+    "provider.data_collection": "provider.data_collection",
+    "provider.zdr": "provider.zdr",
+    "provider.enforce_distillable_text": "provider.enforce_distillable_text",
+    "provider.quantizations": "provider.quantizations",
+    "provider.sort": "provider.sort",
+    "provider.preferred_min_throughput": "provider.preferred_min_throughput",
+    "provider.preferred_max_latency": "provider.preferred_max_latency",
+    "provider.max_price": "provider.max_price",
+    transforms: "transforms",
+    plugins: "plugins",
+  },
+  specs: {
+    provider: { type: "string" as const, description: "Provider routing preferences" },
+    "provider.order": { type: "string" as const, description: "Provider order" },
+    "provider.only": { type: "string" as const, description: "Provider allowlist" },
+    "provider.ignore": { type: "string" as const, description: "Provider blocklist" },
+    "provider.allow_fallbacks": { type: "boolean" as const, default: true, description: "Allow fallback providers" },
+    "provider.require_parameters": { type: "boolean" as const, default: false, description: "Only route to providers that support all request params" },
+    "provider.data_collection": { type: "string" as const, values: ["allow", "deny"], default: "allow", description: "Provider data collection policy" },
+    "provider.zdr": { type: "boolean" as const, description: "Require zero data retention providers" },
+    "provider.enforce_distillable_text": { type: "boolean" as const, description: "Require providers that allow text distillation" },
+    "provider.quantizations": { type: "string" as const, description: "Allowed provider quantization levels" },
+    "provider.sort": { type: "string" as const, values: ["price", "throughput", "latency", "cost", "ttft", "tps"], description: "Provider sort strategy" },
+    "provider.preferred_min_throughput": { type: "number" as const, min: 0, description: "Preferred minimum provider throughput" },
+    "provider.preferred_max_latency": { type: "number" as const, min: 0, description: "Preferred maximum provider latency" },
+    "provider.max_price": { type: "string" as const, description: "Maximum provider price filter" },
+    transforms: { type: "string" as const, description: "Legacy OpenRouter message transforms" },
+    plugins: { type: "string" as const, description: "OpenRouter request plugins" },
+  },
+};
+
+// ── Provider definitions ────────────────────────────────────────────────────
+
+export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
+  openai: {
+    params: {
+      temperature: "temperature",
+      max_tokens: "max_tokens",
+      max_completion_tokens: "max_completion_tokens",
+      top_p: "top_p",
+      frequency_penalty: "frequency_penalty",
+      presence_penalty: "presence_penalty",
+      stop: "stop",
+      n: "n",
+      seed: "seed",
+      stream: "stream",
+      effort: "reasoning_effort",
+    },
+    specs: {
+      temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
+      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
+      max_completion_tokens: { type: "number", min: 1, default: 4096, description: "Maximum completion tokens (reasoning models)" },
+      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+      frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
+      presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+      stop: { type: "string", description: "Stop sequences" },
+      n: { type: "number", min: 1, default: 1, description: "Completions count" },
+      seed: { type: "number", description: "Random seed" },
+      stream: { type: "boolean", default: false, description: "Stream response" },
+      reasoning_effort: { type: "string", values: REASONING_EFFORT_VALUES, default: "medium", description: "Reasoning effort" },
+    },
+  },
+  azure: OPENAI_COMPATIBLE_DEF,
+  anthropic: {
+    params: {
+      temperature: "temperature",
+      max_tokens: "max_tokens",
+      top_p: "top_p",
+      top_k: "top_k",
+      stop: "stop_sequences",
+      stream: "stream",
+      effort: "effort",
+      cache: "cache_control",
+      cache_ttl: "cache_ttl",
+    },
+    specs: {
+      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
+      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
+      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+      top_k: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+      stop_sequences: { type: "string", description: "Stop sequences" },
+      stream: { type: "boolean", default: false, description: "Stream response" },
+      effort: { type: "string", values: REASONING_EFFORT_VALUES, default: "low", description: "Thinking effort" },
+      cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
+      cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+    },
+    cacheValue: "ephemeral",
+    cacheTtls: ["5m", "1h"],
+  },
+  google: GOOGLE_COMPATIBLE_DEF,
+  "google-vertex": GOOGLE_COMPATIBLE_DEF,
   mistral: {
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    top_p: "top_p",
-    frequency_penalty: "frequency_penalty",
-    presence_penalty: "presence_penalty",
-    stop: "stop",
-    n: "n",
-    seed: "random_seed",
-    stream: "stream",
-    safe_prompt: "safe_prompt",
-    min_tokens: "min_tokens",
+    params: {
+      temperature: "temperature",
+      max_tokens: "max_tokens",
+      top_p: "top_p",
+      frequency_penalty: "frequency_penalty",
+      presence_penalty: "presence_penalty",
+      stop: "stop",
+      n: "n",
+      seed: "random_seed",
+      stream: "stream",
+      safe_prompt: "safe_prompt",
+      min_tokens: "min_tokens",
+    },
+    specs: {
+      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
+      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
+      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+      frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
+      presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+      stop: { type: "string", description: "Stop sequences" },
+      n: { type: "number", min: 1, default: 1, description: "Completions count" },
+      random_seed: { type: "number", description: "Random seed" },
+      stream: { type: "boolean", default: false, description: "Stream response" },
+      safe_prompt: { type: "boolean", default: false, description: "Enable safe prompt" },
+      min_tokens: { type: "number", min: 0, default: 0, description: "Minimum tokens" },
+    },
   },
   cohere: {
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    top_p: "p",
-    top_k: "k",
-    frequency_penalty: "frequency_penalty",
-    presence_penalty: "presence_penalty",
-    stop: "stop_sequences",
-    stream: "stream",
-    seed: "seed",
+    params: {
+      temperature: "temperature",
+      max_tokens: "max_tokens",
+      top_p: "p",
+      top_k: "k",
+      frequency_penalty: "frequency_penalty",
+      presence_penalty: "presence_penalty",
+      stop: "stop_sequences",
+      stream: "stream",
+      seed: "seed",
+    },
+    specs: {
+      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
+      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
+      p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling (p)" },
+      k: { type: "number", min: 0, max: 500, default: 40, description: "Top-K sampling (k)" },
+      frequency_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize frequent tokens" },
+      presence_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize repeated topics" },
+      stop_sequences: { type: "string", description: "Stop sequences" },
+      stream: { type: "boolean", default: false, description: "Stream response" },
+      seed: { type: "number", description: "Random seed" },
+    },
   },
   bedrock: {
-    // Bedrock Converse API uses camelCase
-    temperature: "temperature",
-    max_tokens: "maxTokens",
-    top_p: "topP",
-    top_k: "topK", // Claude models via additionalModelRequestFields
-    stop: "stopSequences",
-    stream: "stream",
-    cache: "cache_control",
-    cache_ttl: "cache_ttl",
+    params: {
+      temperature: "temperature",
+      max_tokens: "maxTokens",
+      top_p: "topP",
+      top_k: "topK", // Claude models via additionalModelRequestFields
+      stop: "stopSequences",
+      stream: "stream",
+      cache: "cache_control",
+      cache_ttl: "cache_ttl",
+    },
+    specs: {
+      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
+      maxTokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
+      topP: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
+      topK: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+      stopSequences: { type: "string", description: "Stop sequences" },
+      stream: { type: "boolean", default: false, description: "Stream response" },
+      cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
+      cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+    },
+    cacheValue: "ephemeral",
+    cacheTtls: ["5m", "1h"],
   },
   openrouter: {
-    // OpenAI-compatible API with extra routing params
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    max_completion_tokens: "max_completion_tokens",
-    top_p: "top_p",
-    top_k: "top_k",
-    frequency_penalty: "frequency_penalty",
-    presence_penalty: "presence_penalty",
-    stop: "stop",
-    n: "n",
-    seed: "seed",
-    stream: "stream",
-    effort: "reasoning_effort",
-    ...OPENROUTER_ROUTING_PARAMS,
+    // OpenAI-compatible API with extra routing params; loose ranges as it proxies many providers
+    params: {
+      ...OPENAI_COMPATIBLE_DEF.params,
+      ...OPENROUTER_ROUTING_DEF.params,
+    },
+    specs: {
+      ...OPENAI_COMPATIBLE_DEF.specs,
+      ...OPENROUTER_ROUTING_DEF.specs,
+    },
   },
   vercel: {
-    // OpenAI-compatible gateway
-    temperature: "temperature",
-    max_tokens: "max_tokens",
-    max_completion_tokens: "max_completion_tokens",
-    top_p: "top_p",
-    top_k: "top_k",
-    frequency_penalty: "frequency_penalty",
-    presence_penalty: "presence_penalty",
-    stop: "stop",
-    n: "n",
-    seed: "seed",
-    stream: "stream",
-    effort: "reasoning_effort",
+    // OpenAI-compatible gateway; loose ranges as it proxies many providers
+    params: { ...OPENAI_COMPATIBLE_DEF.params },
+    specs: {
+      ...OPENAI_COMPATIBLE_DEF.specs,
+      order: { type: "string", description: "Gateway provider order" },
+      only: { type: "string", description: "Gateway provider allowlist" },
+      models: { type: "string", description: "Gateway fallback models" },
+      tags: { type: "string", description: "Gateway usage tags" },
+      sort: { type: "string", values: ["cost", "ttft", "tps"], description: "Gateway provider sort strategy" },
+      caching: { type: "string", values: ["auto"], description: "Gateway automatic caching strategy" },
+      user: { type: "string", description: "Gateway usage user identifier" },
+      byok: { type: "string", description: "Gateway BYOK credentials" },
+      zero_data_retention: { type: "boolean", description: "Gateway zero data retention routing" },
+      disallow_prompt_training: { type: "boolean", description: "Gateway prompt training opt-out routing" },
+      hipaa_compliant: { type: "boolean", description: "Gateway HIPAA-compliant routing" },
+      quota_entity_id: { type: "string", description: "Gateway quota entity identifier" },
+      provider_timeouts: { type: "string", description: "Gateway provider timeouts" },
+    },
   },
-  xai: OPENAI_COMPATIBLE_PARAMS,
-  groq: OPENAI_COMPATIBLE_PARAMS,
-  fal: FAL_PARAMS,
-  deepinfra: OPENAI_COMPATIBLE_PARAMS,
-  "black-forest-labs": {},
-  together: OPENAI_COMPATIBLE_PARAMS,
-  fireworks: OPENAI_COMPATIBLE_PARAMS,
-  deepseek: OPENAI_COMPATIBLE_PARAMS,
-  moonshotai: OPENAI_COMPATIBLE_PARAMS,
-  perplexity: OPENAI_COMPATIBLE_PARAMS,
-  alibaba: OPENAI_COMPATIBLE_PARAMS,
-  cerebras: OPENAI_COMPATIBLE_PARAMS,
-  replicate: REPLICATE_PARAMS,
-  prodia: PRODIA_PARAMS,
-  luma: LUMA_PARAMS,
-  bytedance: {},
-  kling: {},
-  elevenlabs: {},
-  assemblyai: {},
-  deepgram: {},
-  gladia: {},
-  lmnt: {},
-  hume: {},
-  revai: {},
-  baseten: OPENAI_COMPATIBLE_PARAMS,
-  huggingface: OPENAI_COMPATIBLE_PARAMS,
+  xai: OPENAI_COMPATIBLE_DEF,
+  groq: OPENAI_COMPATIBLE_DEF,
+  fal: FAL_DEF,
+  deepinfra: OPENAI_COMPATIBLE_DEF,
+  "black-forest-labs": { params: {}, specs: {} },
+  together: OPENAI_COMPATIBLE_DEF,
+  fireworks: OPENAI_COMPATIBLE_DEF,
+  deepseek: OPENAI_COMPATIBLE_DEF,
+  moonshotai: OPENAI_COMPATIBLE_DEF,
+  perplexity: OPENAI_COMPATIBLE_DEF,
+  alibaba: OPENAI_COMPATIBLE_DEF,
+  cerebras: OPENAI_COMPATIBLE_DEF,
+  replicate: REPLICATE_DEF,
+  prodia: PRODIA_DEF,
+  luma: LUMA_DEF,
+  bytedance: { params: {}, specs: {} },
+  kling: { params: {}, specs: {} },
+  elevenlabs: { params: {}, specs: {} },
+  assemblyai: { params: {}, specs: {} },
+  deepgram: { params: {}, specs: {} },
+  gladia: { params: {}, specs: {} },
+  lmnt: { params: {}, specs: {} },
+  hume: { params: {}, specs: {} },
+  revai: { params: {}, specs: {} },
+  baseten: OPENAI_COMPATIBLE_DEF,
+  huggingface: OPENAI_COMPATIBLE_DEF,
 };
+
+// ── Derived exports ─────────────────────────────────────────────────────────
+
+/** Canonical param name → provider-specific API param name. */
+export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> =
+  Object.fromEntries(
+    (
+      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+    ).map(([provider, def]) => [provider, def.params]),
+  ) as Record<Provider, Record<string, string>>;
+
+/** Validation specs per provider, keyed by provider-specific param name. */
+export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> =
+  Object.fromEntries(
+    (
+      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+    ).map(([provider, def]) => [provider, def.specs]),
+  ) as Record<Provider, Record<string, ParamSpec>>;
 
 /**
- * Validation specs per provider, keyed by provider-specific param name.
+ * Cache value normalization per provider.
+ * Omitted providers auto-cache (OpenAI) or don't support the param at all.
  */
-export interface ParamSpec {
-  type: "number" | "string" | "boolean";
-  min?: number;
-  max?: number;
-  values?: string[];
-  default?: string | number | boolean;
-  description?: string;
-}
+export const CACHE_VALUES: Partial<Record<Provider, string>> =
+  Object.fromEntries(
+    (
+      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+    )
+      .filter(([, def]) => def.cacheValue !== undefined)
+      .map(([provider, def]) => [provider, def.cacheValue!]),
+  );
 
-const REASONING_EFFORT_VALUES = [
-  "none",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-];
+/** Valid cache TTL values per provider. Omitted providers don't support TTL selection. */
+export const CACHE_TTLS: Partial<Record<Provider, string[]>> =
+  Object.fromEntries(
+    (
+      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+    )
+      .filter(([, def]) => def.cacheTtls !== undefined)
+      .map(([provider, def]) => [provider, def.cacheTtls!]),
+  );
 
-const OPENAI_COMPATIBLE_PARAM_SPECS: Record<string, ParamSpec> = {
-  temperature: {
-    type: "number",
-    min: 0,
-    max: 2,
-    default: 0.7,
-    description: "Controls randomness",
-  },
-  max_tokens: {
-    type: "number",
-    min: 1,
-    default: 4096,
-    description: "Maximum output tokens",
-  },
-  max_completion_tokens: {
-    type: "number",
-    min: 1,
-    default: 4096,
-    description: "Maximum completion tokens (reasoning models)",
-  },
-  top_p: {
-    type: "number",
-    min: 0,
-    max: 1,
-    default: 1,
-    description: "Nucleus sampling",
-  },
-  top_k: {
-    type: "number",
-    min: 0,
-    default: 40,
-    description: "Top-K sampling",
-  },
-  frequency_penalty: {
-    type: "number",
-    min: -2,
-    max: 2,
-    default: 0,
-    description: "Penalize frequent tokens",
-  },
-  presence_penalty: {
-    type: "number",
-    min: -2,
-    max: 2,
-    default: 0,
-    description: "Penalize repeated topics",
-  },
-  stop: { type: "string", description: "Stop sequences" },
-  n: { type: "number", min: 1, default: 1, description: "Completions count" },
-  seed: { type: "number", description: "Random seed" },
-  stream: { type: "boolean", default: false, description: "Stream response" },
-  reasoning_effort: {
-    type: "string",
-    values: REASONING_EFFORT_VALUES,
-    default: "medium",
-    description: "Reasoning effort",
-  },
-};
-
-const OPENROUTER_ROUTING_PARAM_SPECS: Record<string, ParamSpec> = {
-  provider: { type: "string", description: "Provider routing preferences" },
-  order: { type: "string", description: "Provider order" },
-  "provider.order": { type: "string", description: "Provider order" },
-  only: { type: "string", description: "Provider allowlist" },
-  "provider.only": { type: "string", description: "Provider allowlist" },
-  ignore: { type: "string", description: "Provider blocklist" },
-  "provider.ignore": { type: "string", description: "Provider blocklist" },
-  allow_fallbacks: {
-    type: "boolean",
-    default: true,
-    description: "Allow fallback providers",
-  },
-  "provider.allow_fallbacks": {
-    type: "boolean",
-    default: true,
-    description: "Allow fallback providers",
-  },
-  require_parameters: {
-    type: "boolean",
-    default: false,
-    description: "Only route to providers that support all request params",
-  },
-  "provider.require_parameters": {
-    type: "boolean",
-    default: false,
-    description: "Only route to providers that support all request params",
-  },
-  data_collection: {
-    type: "string",
-    values: ["allow", "deny"],
-    default: "allow",
-    description: "Provider data collection policy",
-  },
-  "provider.data_collection": {
-    type: "string",
-    values: ["allow", "deny"],
-    default: "allow",
-    description: "Provider data collection policy",
-  },
-  zdr: {
-    type: "boolean",
-    description: "Require zero data retention providers",
-  },
-  "provider.zdr": {
-    type: "boolean",
-    description: "Require zero data retention providers",
-  },
-  enforce_distillable_text: {
-    type: "boolean",
-    description: "Require providers that allow text distillation",
-  },
-  "provider.enforce_distillable_text": {
-    type: "boolean",
-    description: "Require providers that allow text distillation",
-  },
-  quantizations: {
-    type: "string",
-    description: "Allowed provider quantization levels",
-  },
-  "provider.quantizations": {
-    type: "string",
-    description: "Allowed provider quantization levels",
-  },
-  sort: {
-    type: "string",
-    values: ["price", "throughput", "latency", "cost", "ttft", "tps"],
-    description: "Provider sort strategy",
-  },
-  "provider.sort": {
-    type: "string",
-    values: ["price", "throughput", "latency", "cost", "ttft", "tps"],
-    description: "Provider sort strategy",
-  },
-  preferred_min_throughput: {
-    type: "number",
-    min: 0,
-    description: "Preferred minimum provider throughput",
-  },
-  "provider.preferred_min_throughput": {
-    type: "number",
-    min: 0,
-    description: "Preferred minimum provider throughput",
-  },
-  preferred_max_latency: {
-    type: "number",
-    min: 0,
-    description: "Preferred maximum provider latency",
-  },
-  "provider.preferred_max_latency": {
-    type: "number",
-    min: 0,
-    description: "Preferred maximum provider latency",
-  },
-  max_price: {
-    type: "string",
-    description: "Maximum provider price filter",
-  },
-  "provider.max_price": {
-    type: "string",
-    description: "Maximum provider price filter",
-  },
-  transforms: {
-    type: "string",
-    description: "Legacy OpenRouter message transforms",
-  },
-  plugins: {
-    type: "string",
-    description: "OpenRouter request plugins",
-  },
-};
-
-const FAL_PARAM_SPECS: Record<string, ParamSpec> = {
-  prompt: { type: "string", description: "Prompt" },
-  negative_prompt: { type: "string", description: "Negative prompt" },
-  seed: { type: "number", description: "Random seed" },
-  num_images: {
-    type: "number",
-    min: 1,
-    description: "Number of images to generate",
-  },
-  image_size: { type: "string", description: "Output image size" },
-  aspect_ratio: { type: "string", description: "Output aspect ratio" },
-  enable_safety_checker: {
-    type: "boolean",
-    description: "Enable safety checker",
-  },
-  enable_safety_checks: {
-    type: "boolean",
-    description: "Enable safety checker",
-  },
-  enable_prompt_expansion: {
-    type: "boolean",
-    description: "Enable prompt expansion",
-  },
-  expand_prompt: {
-    type: "boolean",
-    description: "Enable prompt expansion",
-  },
-  output_format: {
-    type: "string",
-    values: ["jpeg", "jpg", "png", "webp", "gif"],
-    description: "Output image format",
-  },
-  width: { type: "number", min: 1, description: "Image width" },
-  height: { type: "number", min: 1, description: "Image height" },
-};
-
-const REPLICATE_PARAM_SPECS: Record<string, ParamSpec> = {
-  prompt: { type: "string", description: "Prompt" },
-  negative_prompt: { type: "string", description: "Negative prompt" },
-  input: { type: "string", description: "Model input object" },
-  version: { type: "string", description: "Model version" },
-  seed: { type: "number", description: "Random seed" },
-  num_outputs: {
-    type: "number",
-    min: 1,
-    description: "Number of outputs to generate",
-  },
-  num_inference_steps: {
-    type: "number",
-    min: 1,
-    description: "Number of inference steps",
-  },
-  guidance_scale: {
-    type: "number",
-    min: 0,
-    description: "Guidance scale",
-  },
-  image_size: { type: "string", description: "Output image size" },
-  aspect_ratio: { type: "string", description: "Output aspect ratio" },
-  output_format: { type: "string", description: "Output format" },
-  width: { type: "number", min: 1, description: "Image width" },
-  height: { type: "number", min: 1, description: "Image height" },
-  stream: { type: "boolean", description: "Request streaming output" },
-  webhook: { type: "string", description: "Webhook URL" },
-  webhook_events_filter: {
-    type: "string",
-    description: "Webhook events filter",
-  },
-};
-
-const PRODIA_PARAM_SPECS: Record<string, ParamSpec> = {
-  model: { type: "string", description: "Model name" },
-  prompt: { type: "string", description: "Prompt" },
-  negative_prompt: { type: "string", description: "Negative prompt" },
-  style_preset: { type: "string", description: "Style preset" },
-  steps: { type: "number", min: 1, description: "Generation steps" },
-  cfg_scale: { type: "number", min: 0, description: "CFG scale" },
-  seed: { type: "number", description: "Random seed" },
-  upscale: { type: "boolean", description: "Enable 2x upscale" },
-  sampler: { type: "string", description: "Sampler" },
-  width: { type: "number", min: 1, max: 1024, description: "Image width" },
-  height: { type: "number", min: 1, max: 1024, description: "Image height" },
-  image_size: { type: "string", description: "Output image size" },
-  aspect_ratio: { type: "string", description: "Output aspect ratio" },
-  output_format: { type: "string", description: "Output format" },
-  type: { type: "string", description: "Prodia v2 job type" },
-  config: { type: "string", description: "Prodia v2 job config" },
-  price: { type: "boolean", description: "Include Prodia v2 job price" },
-};
-
-const LUMA_PARAM_SPECS: Record<string, ParamSpec> = {
-  prompt: { type: "string", description: "Prompt" },
-  model: { type: "string", description: "Model name" },
-  aspect_ratio: { type: "string", description: "Output aspect ratio" },
-  keyframes: { type: "string", description: "Generation keyframes" },
-  loop: { type: "boolean", description: "Generate a looping video" },
-  duration: { type: "string", description: "Generation duration" },
-  type: { type: "string", description: "Generation type" },
-  image_ref: { type: "string", description: "Image reference" },
-  video: { type: "string", description: "Video options" },
-  source: { type: "string", description: "Source generation or media" },
-};
-
-const GOOGLE_COMPATIBLE_PARAM_SPECS: Record<string, ParamSpec> = {
-  temperature: {
-    type: "number",
-    min: 0,
-    max: 2,
-    default: 0.7,
-    description: "Controls randomness",
-  },
-  maxOutputTokens: {
-    type: "number",
-    min: 1,
-    default: 4096,
-    description: "Maximum output tokens",
-  },
-  topP: {
-    type: "number",
-    min: 0,
-    max: 1,
-    default: 1,
-    description: "Nucleus sampling",
-  },
-  topK: {
-    type: "number",
-    min: 0,
-    default: 40,
-    description: "Top-K sampling",
-  },
-  frequencyPenalty: {
-    type: "number",
-    min: -2,
-    max: 2,
-    default: 0,
-    description: "Penalize frequent tokens",
-  },
-  presencePenalty: {
-    type: "number",
-    min: -2,
-    max: 2,
-    default: 0,
-    description: "Penalize repeated topics",
-  },
-  stopSequences: { type: "string", description: "Stop sequences" },
-  candidateCount: {
-    type: "number",
-    min: 1,
-    default: 1,
-    description: "Candidate count",
-  },
-  stream: { type: "boolean", default: false, description: "Stream response" },
-  seed: { type: "number", description: "Random seed" },
-  responseMimeType: { type: "string", description: "Response MIME type" },
-  responseSchema: { type: "string", description: "Response schema" },
-};
-
-export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> = {
-  openai: {
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 2,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    max_completion_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum completion tokens (reasoning models)",
-    },
-    top_p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    frequency_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presence_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stop: { type: "string", description: "Stop sequences" },
-    n: { type: "number", min: 1, default: 1, description: "Completions count" },
-    seed: { type: "number", description: "Random seed" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    reasoning_effort: {
-      type: "string",
-      values: REASONING_EFFORT_VALUES,
-      default: "medium",
-      description: "Reasoning effort",
-    },
-  },
-  azure: OPENAI_COMPATIBLE_PARAM_SPECS,
-  anthropic: {
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    top_p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    top_k: {
-      type: "number",
-      min: 0,
-      default: 40,
-      description: "Top-K sampling",
-    },
-    stop_sequences: { type: "string", description: "Stop sequences" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    effort: {
-      type: "string",
-      values: REASONING_EFFORT_VALUES,
-      default: "low",
-      description: "Thinking effort",
-    },
-    cache_control: {
-      type: "string",
-      values: ["ephemeral"],
-      default: "ephemeral",
-      description: "Cache control",
-    },
-    cache_ttl: {
-      type: "string",
-      values: ["5m", "1h"],
-      default: "5m",
-      description: "Cache TTL",
-    },
-  },
-  google: {
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 2,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    maxOutputTokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    topP: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    topK: {
-      type: "number",
-      min: 0,
-      default: 40,
-      description: "Top-K sampling",
-    },
-    frequencyPenalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presencePenalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stopSequences: { type: "string", description: "Stop sequences" },
-    candidateCount: {
-      type: "number",
-      min: 1,
-      default: 1,
-      description: "Candidate count",
-    },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    seed: { type: "number", description: "Random seed" },
-    responseMimeType: { type: "string", description: "Response MIME type" },
-    responseSchema: { type: "string", description: "Response schema" },
-  },
-  "google-vertex": GOOGLE_COMPATIBLE_PARAM_SPECS,
-  mistral: {
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    top_p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    frequency_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presence_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stop: { type: "string", description: "Stop sequences" },
-    n: { type: "number", min: 1, default: 1, description: "Completions count" },
-    random_seed: { type: "number", description: "Random seed" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    safe_prompt: {
-      type: "boolean",
-      default: false,
-      description: "Enable safe prompt",
-    },
-    min_tokens: {
-      type: "number",
-      min: 0,
-      default: 0,
-      description: "Minimum tokens",
-    },
-  },
-  cohere: {
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling (p)",
-    },
-    k: {
-      type: "number",
-      min: 0,
-      max: 500,
-      default: 40,
-      description: "Top-K sampling (k)",
-    },
-    frequency_penalty: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presence_penalty: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stop_sequences: { type: "string", description: "Stop sequences" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    seed: { type: "number", description: "Random seed" },
-  },
-  bedrock: {
-    // Converse API inferenceConfig params
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    maxTokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    topP: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    topK: {
-      type: "number",
-      min: 0,
-      default: 40,
-      description: "Top-K sampling",
-    },
-    stopSequences: { type: "string", description: "Stop sequences" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    cache_control: {
-      type: "string",
-      values: ["ephemeral"],
-      default: "ephemeral",
-      description: "Cache control",
-    },
-    cache_ttl: {
-      type: "string",
-      values: ["5m", "1h"],
-      default: "5m",
-      description: "Cache TTL",
-    },
-  },
-  openrouter: {
-    // Loose validation — proxies to many providers with varying ranges
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 2,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    max_completion_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum completion tokens (reasoning models)",
-    },
-    top_p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    top_k: {
-      type: "number",
-      min: 0,
-      default: 40,
-      description: "Top-K sampling",
-    },
-    frequency_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presence_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stop: { type: "string", description: "Stop sequences" },
-    n: { type: "number", min: 1, default: 1, description: "Completions count" },
-    seed: { type: "number", description: "Random seed" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    reasoning_effort: {
-      type: "string",
-      values: REASONING_EFFORT_VALUES,
-      default: "medium",
-      description: "Reasoning effort",
-    },
-    ...OPENROUTER_ROUTING_PARAM_SPECS,
-  },
-  vercel: {
-    // Loose validation — proxies to many providers with varying ranges
-    temperature: {
-      type: "number",
-      min: 0,
-      max: 2,
-      default: 0.7,
-      description: "Controls randomness",
-    },
-    max_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum output tokens",
-    },
-    max_completion_tokens: {
-      type: "number",
-      min: 1,
-      default: 4096,
-      description: "Maximum completion tokens (reasoning models)",
-    },
-    top_p: {
-      type: "number",
-      min: 0,
-      max: 1,
-      default: 1,
-      description: "Nucleus sampling",
-    },
-    top_k: {
-      type: "number",
-      min: 0,
-      default: 40,
-      description: "Top-K sampling",
-    },
-    frequency_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize frequent tokens",
-    },
-    presence_penalty: {
-      type: "number",
-      min: -2,
-      max: 2,
-      default: 0,
-      description: "Penalize repeated topics",
-    },
-    stop: { type: "string", description: "Stop sequences" },
-    n: { type: "number", min: 1, default: 1, description: "Completions count" },
-    seed: { type: "number", description: "Random seed" },
-    stream: { type: "boolean", default: false, description: "Stream response" },
-    reasoning_effort: {
-      type: "string",
-      values: REASONING_EFFORT_VALUES,
-      default: "medium",
-      description: "Reasoning effort",
-    },
-    order: { type: "string", description: "Gateway provider order" },
-    only: { type: "string", description: "Gateway provider allowlist" },
-    models: { type: "string", description: "Gateway fallback models" },
-    tags: { type: "string", description: "Gateway usage tags" },
-    sort: {
-      type: "string",
-      values: ["cost", "ttft", "tps"],
-      description: "Gateway provider sort strategy",
-    },
-    caching: {
-      type: "string",
-      values: ["auto"],
-      description: "Gateway automatic caching strategy",
-    },
-    user: { type: "string", description: "Gateway usage user identifier" },
-    byok: { type: "string", description: "Gateway BYOK credentials" },
-    zero_data_retention: {
-      type: "boolean",
-      description: "Gateway zero data retention routing",
-    },
-    zeroDataRetention: {
-      type: "boolean",
-      description: "Gateway zero data retention routing",
-    },
-    disallow_prompt_training: {
-      type: "boolean",
-      description: "Gateway prompt training opt-out routing",
-    },
-    disallowPromptTraining: {
-      type: "boolean",
-      description: "Gateway prompt training opt-out routing",
-    },
-    hipaa_compliant: {
-      type: "boolean",
-      description: "Gateway HIPAA-compliant routing",
-    },
-    hipaaCompliant: {
-      type: "boolean",
-      description: "Gateway HIPAA-compliant routing",
-    },
-    quota_entity_id: {
-      type: "string",
-      description: "Gateway quota entity identifier",
-    },
-    quotaEntityId: {
-      type: "string",
-      description: "Gateway quota entity identifier",
-    },
-    provider_timeouts: {
-      type: "string",
-      description: "Gateway provider timeouts",
-    },
-    providerTimeouts: {
-      type: "string",
-      description: "Gateway provider timeouts",
-    },
-  },
-  xai: OPENAI_COMPATIBLE_PARAM_SPECS,
-  groq: OPENAI_COMPATIBLE_PARAM_SPECS,
-  fal: FAL_PARAM_SPECS,
-  deepinfra: OPENAI_COMPATIBLE_PARAM_SPECS,
-  "black-forest-labs": {},
-  together: OPENAI_COMPATIBLE_PARAM_SPECS,
-  fireworks: OPENAI_COMPATIBLE_PARAM_SPECS,
-  deepseek: OPENAI_COMPATIBLE_PARAM_SPECS,
-  moonshotai: OPENAI_COMPATIBLE_PARAM_SPECS,
-  perplexity: OPENAI_COMPATIBLE_PARAM_SPECS,
-  alibaba: OPENAI_COMPATIBLE_PARAM_SPECS,
-  cerebras: OPENAI_COMPATIBLE_PARAM_SPECS,
-  replicate: REPLICATE_PARAM_SPECS,
-  prodia: PRODIA_PARAM_SPECS,
-  luma: LUMA_PARAM_SPECS,
-  bytedance: {},
-  kling: {},
-  elevenlabs: {},
-  assemblyai: {},
-  deepgram: {},
-  gladia: {},
-  lmnt: {},
-  hume: {},
-  revai: {},
-  baseten: OPENAI_COMPATIBLE_PARAM_SPECS,
-  huggingface: OPENAI_COMPATIBLE_PARAM_SPECS,
-};
+/**
+ * Extra reasoning model family prefixes beyond what the patterns below detect.
+ * The o-series (o1, o3, …) and gpt-[5-9] series are auto-detected by pattern.
+ * Add a new entry here only for future series with different naming conventions.
+ */
+export const REASONING_MODEL_PREFIXES: readonly string[] = [];
 
 /** OpenAI reasoning models don't support standard sampling params. */
 export function isReasoningModel(model: string): boolean {
   const name = modelLeafName(model);
-  const oSeries = name.match(/^o\d+/)?.[0];
-  const gptSeries = name.match(/^gpt-[5-9]/)?.[0];
+  const oPrefix = name.match(/^o\d+/)?.[0];
+  const gptPrefix = name.match(/^gpt-[5-9]/)?.[0];
   return (
-    (oSeries ? modelMatchesFamily(name, oSeries) : false) ||
-    (gptSeries ? modelMatchesFamily(name, gptSeries) : false)
+    (oPrefix !== undefined && modelMatchesFamily(name, oPrefix)) ||
+    (gptPrefix !== undefined && modelMatchesFamily(name, gptPrefix)) ||
+    REASONING_MODEL_PREFIXES.some((prefix) => modelMatchesFamily(name, prefix))
   );
 }
 
@@ -1606,82 +1013,3 @@ export function bedrockSupportsCaching(model: string): boolean {
   return false;
 }
 
-/** Cache value normalization per provider. */
-export const CACHE_VALUES: Record<Provider, string | undefined> = {
-  openai: undefined, // OpenAI auto-caches; no explicit param
-  azure: undefined,
-  anthropic: "ephemeral",
-  google: undefined, // Google uses explicit caching API, not a param
-  "google-vertex": undefined,
-  mistral: undefined,
-  cohere: undefined,
-  bedrock: "ephemeral", // Supported for Claude models on Bedrock
-  openrouter: undefined, // Depends on underlying provider
-  vercel: undefined, // Depends on underlying provider
-  xai: undefined,
-  groq: undefined,
-  fal: undefined,
-  deepinfra: undefined,
-  "black-forest-labs": undefined,
-  together: undefined,
-  fireworks: undefined,
-  deepseek: undefined,
-  moonshotai: undefined,
-  perplexity: undefined,
-  alibaba: undefined,
-  cerebras: undefined,
-  replicate: undefined,
-  prodia: undefined,
-  luma: undefined,
-  bytedance: undefined,
-  kling: undefined,
-  elevenlabs: undefined,
-  assemblyai: undefined,
-  deepgram: undefined,
-  gladia: undefined,
-  lmnt: undefined,
-  hume: undefined,
-  revai: undefined,
-  baseten: undefined,
-  huggingface: undefined,
-};
-
-/** Valid cache TTL values per provider. */
-export const CACHE_TTLS: Record<Provider, string[] | undefined> = {
-  openai: undefined,
-  azure: undefined,
-  anthropic: ["5m", "1h"],
-  google: undefined,
-  "google-vertex": undefined,
-  mistral: undefined,
-  cohere: undefined,
-  bedrock: ["5m", "1h"], // Claude on Bedrock uses same TTLs as direct Anthropic
-  openrouter: undefined,
-  vercel: undefined,
-  xai: undefined,
-  groq: undefined,
-  fal: undefined,
-  deepinfra: undefined,
-  "black-forest-labs": undefined,
-  together: undefined,
-  fireworks: undefined,
-  deepseek: undefined,
-  moonshotai: undefined,
-  perplexity: undefined,
-  alibaba: undefined,
-  cerebras: undefined,
-  replicate: undefined,
-  prodia: undefined,
-  luma: undefined,
-  bytedance: undefined,
-  kling: undefined,
-  elevenlabs: undefined,
-  assemblyai: undefined,
-  deepgram: undefined,
-  gladia: undefined,
-  lmnt: undefined,
-  hume: undefined,
-  revai: undefined,
-  baseten: undefined,
-  huggingface: undefined,
-};
