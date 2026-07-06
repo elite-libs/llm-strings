@@ -14,7 +14,7 @@
 
 **Parse, normalize, validate, and build portable `llm://` URLs across AI providers.**
 
-[Install](#install) · [Quick Start](#quick-start) · [Examples](#examples) · [Supported Providers](#supported-providers) · [API](#api-reference)
+[Playground](https://elite-libs.github.io/llm-strings/index.html) · [Install](#install) · [Quick Start](#quick-start) · [Examples](#examples) · [Supported Providers](#supported-providers) · [API](#api-reference)
 
 </div>
 
