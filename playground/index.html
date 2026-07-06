@@ -61,16 +61,16 @@
 
       /* ── Wordmark ── */
       .wordmark {
-        font-size: 11px;
+        font-size: 15px;
         font-weight: 700;
-        letter-spacing: 3.5px;
+        letter-spacing: 4px;
         text-transform: uppercase;
         background: linear-gradient(120deg, #818cf8, #34d399);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin-bottom: 52px;
-        opacity: 0.7;
+        opacity: 0.8;
       }
 
       /* ── URL area ── */
@@ -521,6 +521,57 @@
       /* ── Two-col layout helper ── */
       .ep-row { display: flex; align-items: center; gap: 10px; }
 
+      /* ── Copy button ── */
+      .copy-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 14px;
+        padding: 8px 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(99,102,241,.3);
+        background: rgba(99,102,241,.1);
+        color: #a5b4fc;
+        font-family: "Lexend", sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: .3px;
+        cursor: pointer;
+        transition: all .18s ease;
+      }
+      .copy-btn:hover {
+        border-color: rgba(99,102,241,.6);
+        background: rgba(99,102,241,.18);
+        color: #c7d2fe;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(99,102,241,.18);
+      }
+      .copy-btn.copied {
+        border-color: rgba(52,211,153,.5);
+        background: rgba(52,211,153,.12);
+        color: #6ee7b7;
+      }
+      .reset-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(248,113,113,.2);
+        background: transparent;
+        color: rgba(248,113,113,.5);
+        font-family: "Lexend", sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all .18s ease;
+      }
+      .reset-btn:hover {
+        border-color: rgba(248,113,113,.5);
+        background: rgba(248,113,113,.08);
+        color: var(--err);
+      }
+
       /* ── Responsive ── */
       @media (max-width: 560px) {
         .ep-grid { grid-template-columns: repeat(4, 1fr); gap: 5px; }
@@ -555,14 +606,14 @@
       ];
 
       const MODELS = {
-        openai:     ["gpt-5.2","gpt-5.2-pro","gpt-4.1","gpt-4.1-mini","gpt-4.1-nano","o3","o3-mini","o4-mini","o1-pro"],
-        anthropic:  ["claude-opus-4-6","claude-sonnet-4-6","claude-sonnet-4-5","claude-haiku-4-5"],
+        openai:     ["gpt-5.6","gpt-5.5","gpt-5.2","gpt-5.2-pro","gpt-4.1","gpt-4.1-mini","gpt-4.1-nano","o3","o3-mini","o4-mini","o1-pro"],
+        anthropic:  ["claude-fable-5","claude-opus-4-8","claude-opus-4-6","claude-sonnet-4-6","claude-sonnet-4-5","claude-haiku-4-5"],
         google:     ["gemini-3-pro-preview","gemini-3-flash-preview","gemini-2.5-pro","gemini-2.5-flash"],
         mistral:    ["mistral-large-latest","mistral-medium-latest","mistral-small-latest","codestral-latest","magistral-medium-latest"],
         cohere:     ["command-a-03-2025","command-r-plus-08-2024","command-r-08-2024","command-r7b-12-2024"],
         bedrock:    ["anthropic.claude-opus-4-6-v1","anthropic.claude-sonnet-4-6-v1","anthropic.claude-haiku-4-5-v1","amazon.nova-pro-v1","amazon.nova-lite-v1","meta.llama3-70b-instruct-v1:0"],
-        openrouter: ["openai/gpt-5.2","anthropic/claude-opus-4-6","google/gemini-2.5-pro","mistral/mistral-large-latest"],
-        vercel:     ["openai/gpt-5.2","anthropic/claude-opus-4-6","google/gemini-2.5-pro"],
+        openrouter: ["openai/gpt-5.6","openai/gpt-5.5","openai/gpt-5.2","anthropic/claude-fable-5","anthropic/claude-opus-4-8","anthropic/claude-opus-4-6","google/gemini-2.5-pro","mistral/mistral-large-latest"],
+        vercel:     ["openai/gpt-5.6","openai/gpt-5.5","openai/gpt-5.2","anthropic/claude-fable-5","anthropic/claude-opus-4-8","anthropic/claude-opus-4-6","google/gemini-2.5-pro"],
       };
 
       const PARAM_SPECS = {
@@ -1250,15 +1301,38 @@
       // APP
       // ══════════════════════════════════════════════
 
+      const STORAGE_KEY = "llm-strings-playground";
+
+      function loadSaved() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+      }
+
       function App() {
-        const [label,     setLabel]     = useState("");
-        const [apiKey,    setApiKey]    = useState("");
-        const [host,      setHost]      = useState("");
-        const [model,     setModel]     = useState("");
-        const [params,    setParams]    = useState({});
-        const [active,    setActive]    = useState(null); // null | 'host' | 'model' | 'identity' | 'addParam' | paramName
+        const saved = useMemo(() => loadSaved(), []);
+        const [label,     setLabel]     = useState(saved?.label   ?? "");
+        const [apiKey,    setApiKey]    = useState(saved?.apiKey  ?? "");
+        const [host,      setHost]      = useState(saved?.host    ?? "");
+        const [model,     setModel]     = useState(saved?.model   ?? "");
+        const [params,    setParams]    = useState(saved?.params  ?? {});
+        const [active,    setActive]    = useState(null);
         const [rawMode,   setRawMode]   = useState(false);
         const [showKey,   setShowKey]   = useState(false);
+        const [copied,    setCopied]    = useState(false);
+
+        useEffect(() => {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ label, apiKey, host, model, params }));
+          } catch {}
+        }, [label, apiKey, host, model, params]);
+
+        function handleReset() {
+          setLabel(""); setApiKey(""); setHost(""); setModel(""); setParams({});
+          setActive(null); setRawMode(false);
+          localStorage.removeItem(STORAGE_KEY);
+        }
 
         const provider     = detectProvider(host);
         const providerMeta = PROVIDERS.find(p => p.id === provider);
@@ -1326,6 +1400,13 @@
           setActive(null);
         }
 
+        function handleCopy() {
+          navigator.clipboard.writeText(plain).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1800);
+          });
+        }
+
         function handleRawCommit(parsed) {
           setHost(parsed.host || "");
           setModel(parsed.model || "");
@@ -1363,6 +1444,42 @@
                   onKeyPress={() => { setActive(null); setRawMode(true); }}
                   issueParams={issueParams}
                 />
+              )}
+
+              {!rawMode && (
+                <div style={{display:"flex", alignItems:"center", gap:10, marginTop:14}}>
+                  <button
+                    className={`copy-btn${copied ? " copied" : ""}`}
+                    style={{marginTop:0}}
+                    onClick={handleCopy}
+                    title="Copy LLM string to clipboard"
+                  >
+                    {copied ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path d="M2 7l3.5 3.5L12 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <rect x="4.5" y="1" width="8" height="9.5" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+                          <path d="M1 4.5v7.5A1.5 1.5 0 0 0 2.5 13.5H10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                        </svg>
+                        Copy
+                      </>
+                    )}
+                  </button>
+                  {(host || model || label || apiKey || Object.keys(params).length > 0) && (
+                    <button className="reset-btn" onClick={handleReset} title="Clear all fields">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                      </svg>
+                      Reset
+                    </button>
+                  )}
+                </div>
               )}
             </div>
 
