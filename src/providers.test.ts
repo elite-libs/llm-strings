@@ -201,7 +201,7 @@ describe("CANONICAL_PARAM_SPECS", () => {
             spec.values,
             `${p}.${name} is enum but has no values`,
           ).toBeDefined();
-          expect(spec.values!.length).toBeGreaterThan(0);
+          expect(spec.values?.length).toBeGreaterThan(0);
         }
       }
     }

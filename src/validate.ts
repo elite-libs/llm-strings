@@ -199,7 +199,7 @@ export function validate(
 
     if (spec.type === "number") {
       const num = Number(value);
-      if (isNaN(num)) {
+      if (Number.isNaN(num)) {
         issues.push({
           param: key,
           value,

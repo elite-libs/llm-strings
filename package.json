@@ -1,6 +1,6 @@
 {
   "name": "llm-strings",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "packageManager": "pnpm@11.1.1",
   "description": "Parse and build LLM connection strings — like database URLs, but for LLM APIs",
   "type": "module",
@@ -74,11 +74,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-dcts.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint .",
+    "lint": "biome lint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepublishOnly": "pnpm run build && pnpm run test"
@@ -113,15 +113,13 @@
     "url": "git+https://github.com/justsml/llm-strings.git"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "^10.0.0",
-    "prettier": "^3.0.0",
-    "terser": "^5.48.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.5.0",
-    "typescript-eslint": "^8.0.0",
-    "vitest": "^4.0.18"
+    "@biomejs/biome": "^2.5.3",
+    "@vitest/coverage-v8": "^4.1.10",
+    "prettier": "^3.9.4",
+    "terser": "^5.49.0",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

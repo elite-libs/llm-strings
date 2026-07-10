@@ -10,7 +10,7 @@ export default defineConfig({
     "src/providers.ts",
   ],
   format: ["esm", "cjs"],
-  dts: true,
+  dts: false,
   clean: true,
   sourcemap: false,
   minify: "terser",

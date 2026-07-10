@@ -6,7 +6,7 @@
 
 [![npm version](https://img.shields.io/npm/v/llm-strings.svg)](https://www.npmjs.com/package/llm-strings)
 [![License](https://img.shields.io/npm/l/llm-strings.svg)](https://github.com/justsml/llm-strings/blob/main/LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-7-blue.svg)](https://www.typescriptlang.org/)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](https://www.npmjs.com/package/llm-strings)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](https://nodejs.org/)
 [![Bundle size](https://img.shields.io/bundlejs/size/llm-strings?format=minzip&label=bundle)](https://bundlejs.com/?q=llm-strings)

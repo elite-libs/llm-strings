@@ -899,8 +899,9 @@ export const CACHE_VALUES: Partial<Record<Provider, string>> =
     (
       Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
     )
-      .filter(([, def]) => def.cacheValue !== undefined)
-      .map(([provider, def]) => [provider, def.cacheValue!]),
+      .flatMap(([provider, def]) =>
+        def.cacheValue === undefined ? [] : [[provider, def.cacheValue]],
+      ),
   );
 
 /** Valid cache TTL values per provider. Omitted providers don't support TTL selection. */
@@ -909,8 +910,9 @@ export const CACHE_TTLS: Partial<Record<Provider, string[]>> =
     (
       Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
     )
-      .filter(([, def]) => def.cacheTtls !== undefined)
-      .map(([provider, def]) => [provider, def.cacheTtls!]),
+      .flatMap(([provider, def]) =>
+        def.cacheTtls === undefined ? [] : [[provider, def.cacheTtls]],
+      ),
   );
 
 /**

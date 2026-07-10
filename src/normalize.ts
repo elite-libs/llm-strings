@@ -104,7 +104,7 @@ export function normalize(
       const isDuration = DURATION_RE.test(value);
 
       if (isBool || isDuration) {
-        const providerKey = PROVIDER_PARAMS[provider]?.["cache"] ?? "cache";
+        const providerKey = PROVIDER_PARAMS[provider]?.cache ?? "cache";
         if (options.verbose) {
           changes.push({
             from: "cache",
@@ -125,7 +125,7 @@ export function normalize(
               reason: `cache=${value} → cache_ttl=${value} for ${provider}`,
             });
           }
-          params["cache_ttl"] = value;
+          params.cache_ttl = value;
         }
         continue;
       }
