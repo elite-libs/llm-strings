@@ -120,6 +120,19 @@ describe("createAiSdkProviderOptions", () => {
     });
   });
 
+  it("uses meta as the providerOptions key for Meta aliases", async () => {
+    const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
+
+    const result = createAiSdkProviderOptions(
+      "llm://meta/muse-spark-1.1?effort=high&max=4096",
+    );
+
+    expect(result.provider).toBe("meta");
+    expect(result.providerOptions).toEqual({
+      meta: { reasoningEffort: "high" },
+    });
+  });
+
   it("uses vertex as the providerOptions key for Google Vertex", async () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 

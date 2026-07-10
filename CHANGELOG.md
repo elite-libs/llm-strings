@@ -6,6 +6,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- Meta Model API provider support (`meta`, `api.meta.ai`) for Muse Spark 1.1 using OpenAI-compatible parameter normalization and AI SDK provider options.
+
 ## [1.4.0] — 2026-07-02
 
 ### Added

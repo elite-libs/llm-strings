@@ -39,6 +39,7 @@ const PROVIDER_OPTION_KEYS: Record<Provider, ProviderOptionsKey> = {
   openrouter: "openrouter",
   vercel: "gateway",
   xai: "xai",
+  meta: "meta",
   groq: "groq",
   fal: "fal",
   deepinfra: "deepinfra",
@@ -691,6 +692,7 @@ const PROVIDER_OPTION_HANDLERS: Record<
   bedrock: addBedrockOption,
   openrouter: addOpenRouterOption,
   xai: (options, key, value) => addOpenAiOption(options, key, value, "xai"),
+  meta: (options, key, value) => addOpenAiOption(options, key, value, "meta"),
   groq: (options, key, value) => addOpenAiOption(options, key, value, "groq"),
   fal: (options, key, value) =>
     addFlexibleProviderOption(options, "fal", key, value),

@@ -28,6 +28,7 @@ const ALL_PROVIDERS: Provider[] = [
   "openrouter",
   "vercel",
   "xai",
+  "meta",
   "groq",
   "fal",
   "deepinfra",
@@ -119,6 +120,10 @@ describe("host aliases", () => {
     expect(resolveHostAlias("grok")).toEqual({
       host: "api.x.ai",
       alias: "grok",
+    });
+    expect(resolveHostAlias("meta")).toEqual({
+      host: "api.meta.ai",
+      alias: "meta",
     });
     expect(resolveHostAlias("wandb")).toEqual({
       host: "api.inference.wandb.ai",

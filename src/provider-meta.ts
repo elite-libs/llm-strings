@@ -63,6 +63,7 @@ export const PROVIDER_META: ProviderMeta[] = [
     color: "#ededed",
   },
   { id: "xai", name: "xAI", host: "api.x.ai", color: "#111111" },
+  { id: "meta", name: "Meta", host: "api.meta.ai", color: "#0866ff" },
   { id: "groq", name: "Groq", host: "api.groq.com", color: "#f55036" },
   { id: "fal", name: "Fal", host: "fal.run", color: "#111111" },
   {

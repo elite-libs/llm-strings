@@ -308,7 +308,7 @@ available for detection, metadata, aliases, and flexible AI SDK providerOptions.
 | Category                    | Providers                                                                                                                                                                                                                     |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Core chat + reasoning       | OpenAI, Azure OpenAI, Anthropic, Google AI Studio, Google Vertex AI, Mistral, Cohere, AWS Bedrock, OpenRouter, Vercel AI Gateway                                                                                              |
-| OpenAI-compatible APIs      | xAI, Groq, DeepInfra, Together.ai, Fireworks, DeepSeek, Moonshot AI, Perplexity, Alibaba DashScope, Cerebras, Baseten, Hugging Face                                                                                           |
+| OpenAI-compatible APIs      | xAI, Meta, Groq, DeepInfra, Together.ai, Fireworks, DeepSeek, Moonshot AI, Perplexity, Alibaba DashScope, Cerebras, Baseten, Hugging Face                                                                                     |
 | Media, audio, and flexible  | Fal, Black Forest Labs, Replicate, Prodia, Luma, ByteDance, Kling AI, ElevenLabs, AssemblyAI, Deepgram, Gladia, LMNT, Hume, Rev.ai                                                                                            |
 | Extra aliases and endpoints | `aistudio`, `vertex`, `grok`, `bfl`, `dashscope`, `alibabacloud`, `togetherai`, `fireworksai`, `moonshot`, `wandb`, `weightsandbiases`, `baidu`, `qianfan`, `venice`, `parasail`, `novita`, `atlascloud`, `xiaomi`, `minimax` |
 
@@ -327,6 +327,7 @@ available for detection, metadata, aliases, and flexible AI SDK providerOptions.
 | `openrouter`        | `openrouter.ai`                           | OpenAI-compatible |
 | `vercel`            | `gateway.ai.vercel.app`                   | OpenAI-compatible |
 | `xai`               | `api.x.ai`                                | OpenAI-compatible |
+| `meta`              | `api.meta.ai`                             | OpenAI-compatible |
 | `groq`              | `api.groq.com`                            | OpenAI-compatible |
 | `fal`               | `fal.run`                                 | flexible          |
 | `deepinfra`         | `api.deepinfra.com`                       | OpenAI-compatible |

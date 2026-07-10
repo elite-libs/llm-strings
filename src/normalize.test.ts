@@ -408,6 +408,11 @@ describe("normalize", () => {
       expect(normalize(config).provider).toBe("vercel");
     });
 
+    it("detects meta", () => {
+      const config = parse("llm://api.meta.ai/muse-spark-1.1");
+      expect(normalize(config).provider).toBe("meta");
+    });
+
     it("returns undefined for unknown host", () => {
       const config = parse("llm://custom-api.example.com/my-model?temp=0.5");
       const { provider, config: result } = normalize(config);

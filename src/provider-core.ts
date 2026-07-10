@@ -10,6 +10,7 @@ export type Provider =
   | "openrouter"
   | "vercel"
   | "xai"
+  | "meta"
   | "groq"
   | "fal"
   | "deepinfra"
@@ -92,6 +93,7 @@ export const HOST_ALIASES: Record<HostAlias, string> = {
   bedrock: "bedrock-runtime.us-east-1.amazonaws.com",
   openrouter: "openrouter.ai",
   vercel: "gateway.ai.vercel.app",
+  meta: "api.meta.ai",
   alibaba: "dashscope-intl.aliyuncs.com",
   alibabacloud: "dashscope-intl.aliyuncs.com",
   dashscope: "dashscope-intl.aliyuncs.com",
@@ -289,6 +291,7 @@ export function detectProvider(host: string): Provider | undefined {
   }
   if (hostMatches(host, "aiplatform.googleapis.com")) return "google-vertex";
   if (hostMatches(host, "xai", "x.ai", "api.x.ai")) return "xai";
+  if (hostMatches(host, "meta", "meta.ai", "api.meta.ai")) return "meta";
   if (hostMatches(host, "groq", "groq.com", "api.groq.com")) return "groq";
   if (hostMatches(host, "fal", "fal.run", "fal.ai")) return "fal";
   if (hostMatches(host, "deepinfra", "deepinfra.com")) return "deepinfra";
@@ -841,6 +844,7 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
     },
   },
   xai: OPENAI_COMPATIBLE_DEF,
+  meta: OPENAI_COMPATIBLE_DEF,
   groq: OPENAI_COMPATIBLE_DEF,
   fal: FAL_DEF,
   deepinfra: OPENAI_COMPATIBLE_DEF,
@@ -1012,4 +1016,3 @@ export function bedrockSupportsCaching(model: string): boolean {
   }
   return false;
 }
-
