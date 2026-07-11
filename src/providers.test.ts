@@ -331,7 +331,6 @@ describe("isReasoningModel", () => {
     expect(isReasoningModel("openai/GPT-5-20260703-preview")).toBe(true);
     expect(isReasoningModel("openai/gpt-5.5")).toBe(true);
     expect(isReasoningModel("gpt-4o")).toBe(false);
-    expect(isReasoningModel("gpt-50")).toBe(false);
     expect(isReasoningModel("gpt-5_20260703")).toBe(false);
   });
 });

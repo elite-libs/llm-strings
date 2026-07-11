@@ -3,9 +3,9 @@ import { validate } from "./validate.js";
 
 describe("validate", () => {
   describe("valid configs", () => {
-    it("returns no issues for valid OpenAI params", () => {
+    it("returns no issues for valid OpenAI reasoning params", () => {
       const issues = validate(
-        "llm://api.openai.com/gpt-4o?temp=0.7&max=1500&top_p=0.9",
+        "llm://api.openai.com/gpt-5.6-sol?max=1500&effort=medium",
       );
       expect(issues).toEqual([]);
     });
@@ -53,8 +53,8 @@ describe("validate", () => {
   });
 
   describe("out of range", () => {
-    it("flags temperature > 2 for OpenAI", () => {
-      const issues = validate("llm://api.openai.com/gpt-4o?temp=3.0");
+    it("flags temperature > 2 for Google", () => {
+      const issues = validate("llm://google/gemini-3.5-flash?temp=3.0");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain("<= 2");
@@ -70,14 +70,14 @@ describe("validate", () => {
     });
 
     it("flags negative temperature", () => {
-      const issues = validate("llm://api.openai.com/gpt-4o?temp=-0.5");
+      const issues = validate("llm://google/gemini-3.5-flash?temp=-0.5");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain(">= 0");
     });
 
     it("flags top_p > 1", () => {
-      const issues = validate("llm://api.openai.com/gpt-4o?top_p=1.5");
+      const issues = validate("llm://google/gemini-3.5-flash?top_p=1.5");
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 1");
     });
@@ -93,7 +93,7 @@ describe("validate", () => {
 
   describe("type errors", () => {
     it("flags non-numeric temperature", () => {
-      const issues = validate("llm://api.openai.com/gpt-4o?temp=hot");
+      const issues = validate("llm://google/gemini-3.5-flash?temp=hot");
       expect(issues).toHaveLength(1);
       expect(issues[0].severity).toBe("error");
       expect(issues[0].message).toContain("number");
@@ -243,8 +243,10 @@ describe("validate", () => {
       expect(issues).toEqual([]);
     });
 
-    it("flags temperature > 2 on OpenRouter", () => {
-      const issues = validate("llm://openrouter.ai/openai/gpt-4o?temp=3.0");
+    it("flags temperature > 2 on OpenRouter for a non-OpenAI route", () => {
+      const issues = validate(
+        "llm://openrouter.ai/google/gemini-3.5-flash?temp=3.0",
+      );
       expect(issues).toHaveLength(1);
       expect(issues[0].message).toContain("<= 2");
     });
@@ -263,7 +265,7 @@ describe("validate", () => {
 
     it("accepts OpenRouter routing and transform params", () => {
       const issues = validate(
-        "llm://openrouter.ai/openai/gpt-4o?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
+        "llm://openrouter.ai/openai/gpt-5.6-sol?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
       );
       expect(issues).toEqual([]);
     });
@@ -271,7 +273,9 @@ describe("validate", () => {
 
   describe("Vercel AI Gateway", () => {
     it("detects and validates Vercel gateway params", () => {
-      const issues = validate("llm://vercel/openai/gpt-4o?temp=0.7&max=1500");
+      const issues = validate(
+        "llm://vercel/openai/gpt-5.6-sol?temp=0.7&max=1500",
+      );
       expect(issues).toEqual([]);
     });
 
@@ -401,9 +405,12 @@ describe("validate", () => {
     });
 
     it("does not affect valid configs", () => {
-      const issues = validate("llm://api.openai.com/gpt-4o?temp=0.7&max=1500", {
-        strict: true,
-      });
+      const issues = validate(
+        "llm://api.openai.com/gpt-5.6-sol?max=1500&effort=medium",
+        {
+          strict: true,
+        },
+      );
       expect(issues).toEqual([]);
     });
   });

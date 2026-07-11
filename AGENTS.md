@@ -14,16 +14,16 @@ It lets callers express provider, model, and generation parameters in a single p
 
 ## Key files
 
-| File | Responsibility |
-|------|---------------|
-| `src/parse.ts` | `parse()` — URL parsing into `LlmConnectionConfig`. `build()` — inverse. |
-| `src/normalize.ts` | `normalize()` — alias expansion, provider-specific param renaming, cache/reasoning rewrites. |
-| `src/validate.ts` | `validate()` — calls normalize internally, then checks types, ranges, enums, mutual exclusions, and provider/model-family constraints. |
+| File                   | Responsibility                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/parse.ts`         | `parse()` — URL parsing into `LlmConnectionConfig`. `build()` — inverse.                                                                                        |
+| `src/normalize.ts`     | `normalize()` — alias expansion, provider-specific param renaming, cache/reasoning rewrites.                                                                    |
+| `src/validate.ts`      | `validate()` — calls normalize internally, then checks types, ranges, enums, mutual exclusions, and provider/model-family constraints.                          |
 | `src/provider-core.ts` | Central registry: `ALIASES`, `HOST_ALIASES`, `PROVIDER_PARAMS`, `PARAM_SPECS`, `CACHE_VALUES`, `CACHE_TTLS`, `DURATION_RE`, and all provider detection helpers. |
-| `src/provider-meta.ts` | `PROVIDER_META` (UI metadata array) and `CANONICAL_PARAM_SPECS` (derived canonical specs). |
-| `src/providers.ts` | Re-exports `provider-core` and `provider-meta` as the `llm-strings/providers` sub-path. |
-| `src/ai-sdk.ts` | `createAiSdkProviderOptions()` — builds AI SDK `providerOptions` from a connection string. |
-| `src/index.ts` | Main entry point — re-exports parse, build, normalize, validate. |
+| `src/provider-meta.ts` | `PROVIDER_META` (UI metadata array) and `CANONICAL_PARAM_SPECS` (derived canonical specs).                                                                      |
+| `src/providers.ts`     | Re-exports `provider-core` and `provider-meta` as the `llm-strings/providers` sub-path.                                                                         |
+| `src/ai-sdk.ts`        | `createAiSdkProviderOptions()` — builds AI SDK `providerOptions` from a connection string.                                                                      |
+| `src/index.ts`         | Main entry point — re-exports parse, build, normalize, validate.                                                                                                |
 
 ## Data flow
 
@@ -98,7 +98,7 @@ ProviderSpecificName: { type: "number", min: 0, max: 1, default: 0.7, descriptio
 - **`PARAM_SPECS` keys are provider-specific names**, not canonical names. This means for Google, the spec for temperature is keyed `"temperature"` (unchanged) but the spec for max tokens is keyed `"maxOutputTokens"`.
 - **Severity**: `"error"` blocks usage; `"warning"` is advisory. Strict mode (`{ strict: true }`) promotes warnings to errors.
 - **Gateways** (`openrouter`, `vercel`) use loose validation ranges since they proxy to many providers. When a sub-provider is detected from the model prefix (e.g. `anthropic/claude-*`), `validate()` switches to that sub-provider's tighter specs.
-- **`isReasoningModel(model)`** strips gateway prefixes before matching — `"openai/o3"` and `"o3"` both match.
+- **`isReasoningModel(model)`** strips gateway prefixes before matching — `"openai/gpt-5.6-sol"` and `"gpt-5.6-sol"` both match.
 - **ESM-first** (`"type": "module"`); imports inside `src/` use `.js` extensions even for `.ts` source files.
 - **Zero runtime dependencies** — do not add any.
 
@@ -108,19 +108,20 @@ ProviderSpecificName: { type: "number", min: 0, max: 1, default: 0.7, descriptio
 - **`PROVIDER_PARAMS` maps canonical → provider-specific; `PARAM_SPECS` maps provider-specific → spec.** Following the wrong direction breaks both normalization and validation silently.
 - **`CACHE_VALUES` and `CACHE_TTLS` must include every `Provider` union member** (even as `undefined`) because they are `Record<Provider, ...>`. TypeScript will catch missing entries at build time, but add the `undefined` entry explicitly to avoid confusion.
 - **Tests use the Vercel `"vercel"` alias or full hostname** (`gateway.ai.vercel.app`, `gateway.ai.vercel.sh`). The bare string `"gateway"` is not a registered alias.
-- **`gpt-5.x` models are classified as reasoning models** by `isReasoningModel()`. Use `gpt-4o` in tests that need a standard (non-reasoning) OpenAI model.
+- **`gpt-5.x` models are classified as reasoning models** by `isReasoningModel()`. Do not invent OpenAI- or Anthropic-looking model IDs for tests or docs. Use real current & verified models, or use neutral names such as `custom-model` only with custom/non-provider hosts when the test is about parser mechanics.
 - **Bedrock model IDs include vendor prefixes** (`anthropic.claude-*`, `amazon.nova-*`, `meta.llama4-*`) and may carry cross-region prefixes (`us.`, `eu.`, `apac.`, `global.`). `detectBedrockModelFamily()` handles this correctly — don't do your own prefix parsing.
 - **`CANONICAL_PARAM_SPECS` is derived at module load** from `PROVIDER_PARAMS` + `PARAM_SPECS` in `provider-meta.ts`. It doesn't need manual updates when you add params to `provider-core.ts`.
+- **Do not introduce old model IDs in README/docs/examples.** Anything released more than six months ago, or whose freshness is unclear, needs a live web/docs check before keeping it. Prefer current, official model IDs such as `gpt-5.6-sol`, `claude-sonnet-5`, `gemini-3.5-flash`, `openai/gpt-oss-120b` on Groq, and `amazon.nova-2-lite-v1:0` on Bedrock. Only use older model names in tests or docs when the point is explicitly legacy compatibility.
 
-## Sub-path exports
+## Exports & APIs
 
-| Import path | Contents |
-|-------------|----------|
-| `llm-strings` | `parse`, `build`, `normalize`, `validate`, shared types |
-| `llm-strings/parse` | `parse`, `build`, `LlmConnectionConfig` |
+| Import path             | Contents                                                              |
+| ----------------------- | --------------------------------------------------------------------- |
+| `llm-strings`           | `parse`, `build`, `normalize`, `validate`, shared types               |
+| `llm-strings/parse`     | `parse`, `build`, `LlmConnectionConfig`                               |
 | `llm-strings/normalize` | `normalize`, `NormalizeResult`, `NormalizeChange`, `NormalizeOptions` |
-| `llm-strings/validate` | `validate`, `ValidationIssue`, `ValidateOptions` |
-| `llm-strings/providers` | Everything from `provider-core` and `provider-meta` |
-| `llm-strings/ai-sdk` | `createAiSdkProviderOptions`, `AiSdkProviderOptionsResult` |
+| `llm-strings/validate`  | `validate`, `ValidationIssue`, `ValidateOptions`                      |
+| `llm-strings/providers` | Everything from `provider-core` and `provider-meta`                   |
+| `llm-strings/ai-sdk`    | `createAiSdkProviderOptions`, `AiSdkProviderOptionsResult`            |
 
 All sub-paths ship ESM + CJS with `.d.ts` / `.d.cts` declarations.

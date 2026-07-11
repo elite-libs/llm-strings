@@ -189,7 +189,7 @@ describe("createAiSdkProviderOptions", () => {
 
     const result = createAiSdkProviderOptions(
       parse(
-        "llm://openrouter.ai/openai/gpt-4o?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
+        "llm://openrouter.ai/openai/gpt-5.6-sol?provider.order=openai,anthropic&provider.allow_fallbacks=false&transforms=middle-out&plugins=context-compression",
       ),
     );
 
@@ -209,7 +209,7 @@ describe("createAiSdkProviderOptions", () => {
     const { createAiSdkProviderOptions } = await import("./ai-sdk.js");
 
     const result = createAiSdkProviderOptions(
-      parse("llm://api.openai.com/gpt-4o?temp=0.7&top_p=0.9&seed=42"),
+      parse("llm://google/gemini-3.5-flash?temp=0.7&top_p=0.9&seed=42"),
     );
 
     expect(result.providerOptions).toEqual({});
@@ -221,7 +221,7 @@ describe("createAiSdkProviderOptions", () => {
       createAiSdkProviderOptions(input).providerOptions;
     const outputs = [
       opts(
-        withParams("llm://api.openai.com/gpt-4o", {
+        withParams("llm://api.openai.com/gpt-5.6-sol", {
           include: '["reasoning.encrypted_content",3]',
           metadata: '{"team":"eval"}',
           allowed_tools: '{"mode":"auto"}',
@@ -245,8 +245,8 @@ describe("createAiSdkProviderOptions", () => {
         }),
       ),
       opts(
-        withParams("llm://openrouter.ai/openai/gpt-4o", {
-          models: "openai/gpt-4o,anthropic/claude-sonnet-4",
+        withParams("llm://openrouter.ai/openai/gpt-5.6-sol", {
+          models: "openai/gpt-5.6-sol,anthropic/claude-sonnet-5",
           provider: '{"require_parameters":true}',
           "provider.sort": '{"field":"latency"}',
           plugins: '["web",{"id":"compress"}]',
@@ -264,9 +264,12 @@ describe("createAiSdkProviderOptions", () => {
       outputs[1].anthropic?.thinking,
       outputs[2].bedrock?.reasoningConfig,
       outputs[3].openrouter?.reasoning,
-      createAiSdkProviderOptions("llm://vercel/openai/gpt-4o?order=openai", {
-        includeGatewayOptions: false,
-      }).providerOptions,
+      createAiSdkProviderOptions(
+        "llm://vercel/openai/gpt-5.6-sol?order=openai",
+        {
+          includeGatewayOptions: false,
+        },
+      ).providerOptions,
     ]).toEqual([
       ["reasoning.encrypted_content"],
       { type: "enabled", budgetTokens: 1024 },
@@ -293,8 +296,9 @@ describe("createAiSdkProviderOptions", () => {
       openAiCompatible.map(
         (alias) =>
           Object.keys(
-            createAiSdkProviderOptions(`llm://${alias}/gpt-4o?effort=high`)
-              .providerOptions,
+            createAiSdkProviderOptions(
+              `llm://${alias}/provider-options-probe?effort=high`,
+            ).providerOptions,
           )[0],
       ),
     ).toEqual(openAiCompatible);

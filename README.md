@@ -22,11 +22,11 @@
 
 ![The parts of an LLM connection string](./assets/inline-url-diagram-dark.svg)
 
-```ini
-llm://openai/gpt-5.5?effort=medium&maxTokens=2000
+```css
+llm://openai/gpt-5.6-sol?effort=medium&maxTokens=2000
 llm://anthropic/claude-opus-4-8?cache=5m&effort=max
-llm://bedrock/anthropic.claude-sonnet-5-20250929-v1:0?temp=0.5&max=4096
-llm://openrouter/anthropic/claude-sonnet-5?temp=0.7&max=2000
+llm://bedrock/anthropic.claude-sonnet-5?cache=1h&max=4096
+llm://openrouter/anthropic/claude-sonnet-5?cache=true&max=2000
 ```
 
 Every LLM provider invented slightly different names for the same knobs:
@@ -43,7 +43,7 @@ proposal by Dan Levy. See the [draft IETF RFC for `llm://`](https://datatracker.
 ## Why developers use it
 
 - **One config string** for host, model, credentials, and generation params.
-- **Provider-native output** from provider-agnostic input like `temp=0.7&max=2000`.
+- **Provider-native output** from provider-agnostic input like `cache=5m&max=2000`.
 - **Early validation** for ranges, mutual exclusions, Bedrock model-family
   rules, and OpenAI reasoning-family normalization.
 - **Short aliases** like `openai`, `anthropic`, `google`, `bedrock`, `groq`, and
@@ -75,42 +75,54 @@ bun add llm-strings
 ```ts
 import { build, normalize, parse, validate } from "llm-strings";
 
-const input = "llm://openai/gpt-5.5?temp=0.7&max=2000&topp=0.9";
+const input = "llm://anthropic/claude-sonnet-5?cache=5m&max=4096";
 
 const parsed = parse(input);
 // {
-//   raw: "llm://openai/gpt-5.5?temp=0.7&max=2000&topp=0.9",
-//   host: "api.openai.com",
-//   hostAlias: "openai",
-//   model: "gpt-5.5",
-//   params: { temp: "0.7", max: "2000", topp: "0.9" }
+//   raw: "llm://anthropic/claude-sonnet-5?cache=5m&max=4096",
+//   host: "api.anthropic.com",
+//   hostAlias: "anthropic",
+//   model: "claude-sonnet-5",
+//   params: { cache: "5m", max: "4096" }
 // }
 
 const { config, provider } = normalize(parsed);
-// provider: "openai"
-// config.params: { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
+// {
+//   provider: "anthropic",
+//   config: {
+//     raw: "llm://anthropic/claude-sonnet-5?cache=5m&max=4096",
+//     host: "api.anthropic.com",
+//     hostAlias: "anthropic",
+//     model: "claude-sonnet-5",
+//     params: {
+//       cache_control: "ephemeral",
+//       cache_ttl: "5m",
+//       max_tokens: "4096"
+//     }
+//   }
+// }
 
-const issues = validate("llm://anthropic/claude-sonnet-5?temp=0.7&top_p=0.9");
+const issues = validate("llm://anthropic/claude-sonnet-5?cache=2h");
 // [
 //   {
-//     param: "temperature",
-//     value: "0.7",
+//     param: "cache_ttl",
+//     value: "2h",
 //     severity: "error",
-//     message: "Cannot specify both \"temperature\" and \"top_p\" for Anthropic models."
+//     message: "\"cache_ttl\" must be one of [5m, 1h], got \"2h\"."
 //   }
 // ]
 
 const url = build({
   host: "anthropic",
   model: "claude-sonnet-5",
-  params: { temp: "0.7", max: "4096" },
+  params: { cache: "1h", max: "4096" },
 });
-// "llm://api.anthropic.com/claude-sonnet-5?temp=0.7&max=4096"
+// "llm://api.anthropic.com/claude-sonnet-5?cache=1h&max=4096"
 ```
 
 ## Format
 
-```ini
+```css
 llm://[label[:apiKey]@]host/model[?params]
 ```
 
@@ -119,7 +131,7 @@ llm://[label[:apiKey]@]host/model[?params]
 | `label`  | No       | App name or environment label     | `worker`                   |
 | `apiKey` | No       | API key in the password position  | `sk-proj-abc123`           |
 | `host`   | Yes      | Provider host or short alias      | `api.openai.com`, `openai` |
-| `model`  | Yes      | Model name, route, or provider ID | `gpt-5.5`                  |
+| `model`  | Yes      | Model name, route, or provider ID | `gpt-5.6-sol`              |
 | `params` | No       | Query-string generation settings  | `effort=medium&max=2000`   |
 
 Connection strings can include secrets, so treat values containing `apiKey` like
@@ -130,7 +142,7 @@ credentials: store them in secret managers or env vars, and avoid logging them.
 ### One env var for your model config
 
 ```bash
-LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-5.5?temp=0.7&max=2000"
+LLM_URL="llm://${APP_NAME-:llm-app}:${API_KEY-:sk-proj-abc123}@anthropic/claude-sonnet-5?cache=5m&max=4096"
 ```
 
 ```ts
@@ -156,40 +168,82 @@ await fetch(`https://${config.host}/v1/chat/completions`, {
   }),
 });
 
-console.log(provider); // "openai"
+console.log(provider); // "anthropic"
 ```
 
-### Switch providers without changing app code
+## Use the AI SDK adapter
+
+The AI SDK adapter is designed to help you map provider-specific options to the AI SDK's `providerOptions` format. It lives on a separate sub-path so you only load it when you need it:
+
+```ts
+const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
+
+const { providerOptions } = createAiSdkProviderOptions(
+  "llm://anthropic/claude-sonnet-5?cache=1h&effort=max",
+);
+
+// {
+//   anthropic: {
+//     cacheControl: { type: "ephemeral", ttl: "1h" },
+//     effort: "max"
+//   }
+// }
+
+// AI SDK call with providerOptions looks like this:
+generateText({
+  model: "claude-sonnet-5",
+  // Use our providerOptions here
+  providerOptions,
+  messages: [{ role: "user", content: "Hello!" }],
+});
+```
+
+Common generation settings like `temperature`, `top-p`, and max output tokens
+belong on the AI SDK call itself. The helper emits provider-specific options
+such as Anthropic cache control vs Bedrock cache points (for supporting models), OpenAI reasoning options,
+Mistral `safePrompt`, OpenRouter routing, and Vercel AI Gateway routing,
+including options such as `order`, `sort=ttft`, and `caching=auto`.
+
+## Switch providers without changing app code
 
 ```bash
 # OpenAI
-LLM_URL="llm://openai/gpt-5.5?temp=0.7&max=2000"
+LLM_URL="llm://openai/gpt-5.6-sol?max=2000&effort=medium"
 
 # Anthropic
-LLM_URL="llm://anthropic/claude-sonnet-5?temp=0.7&max=2000"
+LLM_URL="llm://anthropic/claude-sonnet-5?cache=5m&max=2000"
 
 # Google
-LLM_URL="llm://google/gemini-3.5-flash?temp=0.7&max=2000"
+LLM_URL="llm://google/gemini-3.5-flash?cache=5m&max=2000"
 
 # Bedrock
-LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-5-20250929-v1:0?temp=0.7&max=2000"
+LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-5?cache=1h&max=2000"
 ```
 
 ```ts
 import { normalize, parse } from "llm-strings";
 
 for (const value of [
-  "llm://openai/gpt-5.5?temp=0.7&max=2000",
-  "llm://anthropic/claude-sonnet-5?temp=0.7&max=2000",
-  "llm://google/gemini-3.5-flash?temp=0.7&max=2000",
+  "llm://openai/gpt-5.6-sol?max=2000&effort=medium",
+  "llm://anthropic/claude-sonnet-5?cache=5m&max=2000",
+  "llm://google/gemini-3.5-flash?cache=5m&max=2000",
 ]) {
   const { config, provider } = normalize(parse(value));
   console.log(provider, config.params);
 }
 
-// openai    { temperature: "0.7", max_tokens: "2000" }
-// anthropic { temperature: "0.7", max_tokens: "2000" }
-// google    { temperature: "0.7", maxOutputTokens: "2000" }
+// openai {
+//   max_completion_tokens: "2000",
+//   reasoning_effort: "medium"
+// }
+// anthropic {
+//   cache_control: "ephemeral",
+//   cache_ttl: "5m",
+//   max_tokens: "2000"
+// }
+// google {
+//   maxOutputTokens: "2000"
+// }
 ```
 
 ### Resolve short host aliases
@@ -198,11 +252,12 @@ for (const value of [
 import { normalize, parse } from "llm-strings";
 
 const { config, provider } = normalize(
-  parse("llm://groq/llama-3.3-70b?max=1000"),
+  parse("llm://groq/openai/gpt-oss-120b?max=1000"),
 );
 
 config.host; // "api.groq.com"
 provider; // "groq"
+config.params; // { max_tokens: "1000" }
 ```
 
 Override any alias at deploy time:
@@ -220,17 +275,26 @@ include a scheme or path; only the host portion is used.
 ```ts
 import { validate } from "llm-strings";
 
-validate("llm://openai/gpt-5.5?temp=3.0");
-// [{ param: "temperature", message: "\"temperature\" must be <= 2, got 3", ... }]
+validate("llm://anthropic/claude-sonnet-5?cache=2h");
+// [{ param: "cache_ttl", message: "\"cache_ttl\" must be one of [5m, 1h], got \"2h\".", ... }]
 
-validate("llm://openai/gpt-5.5?temp=0.7&max=2000");
-// [] — temperature is a known unsupported reasoning-family param, so normalize() drops it
+validate("llm://anthropic/claude-sonnet-5?cache=5m&max=2000");
+// [] — cache=5m normalizes to cache_control=ephemeral and cache_ttl=5m
 
-validate("llm://fal/fal-ai/flux-pro?future_model_param=1");
+validate("llm://fal/fal-ai/nano-banana-2?future_model_param=1");
 // [] — unknown params pass through by default for model-specific schemas
 
-validate("llm://fal/fal-ai/flux-pro?future_model_param=1", { strict: true });
-// [{ param: "future_model_param", severity: "error", message: "Unknown param..." }]
+validate("llm://fal/fal-ai/nano-banana-2?future_model_param=1", {
+  strict: true,
+});
+// [
+//   {
+//     param: "future_model_param",
+//     value: "1",
+//     severity: "error",
+//     message: "Unknown param \"future_model_param\" for fal."
+//   }
+// ]
 ```
 
 ### See exactly what changed
@@ -239,7 +303,7 @@ validate("llm://fal/fal-ai/flux-pro?future_model_param=1", { strict: true });
 import { normalize, parse } from "llm-strings";
 
 const { changes } = normalize(
-  parse("llm://google/gemini-3.5-flash?temp=0.7&max=2000&topp=0.9"),
+  parse("llm://bedrock/anthropic.claude-sonnet-5?cache=1h&max=4096"),
   { verbose: true },
 );
 
@@ -247,38 +311,11 @@ for (const change of changes) {
   console.log(`${change.from} -> ${change.to} (${change.reason})`);
 }
 
-// temp -> temperature (alias: "temp" -> "temperature")
+// cache -> cache_control (cache=1h -> cache_control=ephemeral for bedrock)
+// cache -> cache_ttl (cache=1h -> cache_ttl=1h for bedrock)
 // max -> max_tokens (alias: "max" -> "max_tokens")
-// max_tokens -> maxOutputTokens (google uses "maxOutputTokens" instead of "max_tokens")
-// topp -> top_p (alias: "topp" -> "top_p")
-// top_p -> topP (google uses "topP" instead of "top_p")
+// max_tokens -> maxTokens (bedrock uses "maxTokens" instead of "max_tokens")
 ```
-
-### Build AI SDK providerOptions
-
-The AI SDK adapter lives on a separate sub-path so you only load it when you
-need it:
-
-```ts
-const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
-
-const { providerOptions } = createAiSdkProviderOptions(
-  "llm://anthropic/claude-sonnet-5?cache=1h&effort=max",
-);
-
-// {
-//   anthropic: {
-//     cacheControl: { type: "ephemeral", ttl: "1h" },
-//     effort: "max"
-//   }
-// }
-```
-
-Common generation settings like temperature, top-p, and max output tokens
-belong on the AI SDK call itself. The helper emits provider-specific options
-such as Anthropic cache control, Bedrock cache points, OpenAI reasoning options,
-Mistral `safePrompt`, OpenRouter routing, and Vercel AI Gateway routing,
-including options such as `order`, `sort=ttft`, and `caching=auto`.
 
 ### Build provider-aware UIs
 
@@ -288,13 +325,12 @@ import { CANONICAL_PARAM_SPECS, PROVIDER_META } from "llm-strings/providers";
 PROVIDER_META.map(({ id, name, host, color }) => ({ id, name, host, color }));
 // [{ id: "openai", name: "OpenAI", host: "api.openai.com", color: "#10a37f" }, ...]
 
-CANONICAL_PARAM_SPECS.anthropic.temperature;
+CANONICAL_PARAM_SPECS.anthropic.cache_ttl;
 // {
-//   type: "number",
-//   min: 0,
-//   max: 1,
-//   default: 0.7,
-//   description: "Controls randomness"
+//   type: "enum",
+//   values: ["5m", "1h"],
+//   default: "5m",
+//   description: "Cache TTL"
 // }
 ```
 
@@ -317,16 +353,16 @@ available for detection, metadata, aliases, and flexible AI SDK providerOptions.
 | Provider ID         | Default host                              | Param style       |
 | ------------------- | ----------------------------------------- | ----------------- |
 | `openai`            | `api.openai.com`                          | snake_case        |
-| `azure`             | `models.inference.ai.azure.com`           | OpenAI-compatible |
 | `anthropic`         | `api.anthropic.com`                       | snake_case        |
-| `google`            | `generativelanguage.googleapis.com`       | camelCase         |
-| `google-vertex`     | `aiplatform.googleapis.com`               | camelCase         |
-| `mistral`           | `api.mistral.ai`                          | snake_case        |
-| `cohere`            | `api.cohere.com`                          | mixed             |
 | `bedrock`           | `bedrock-runtime.us-east-1.amazonaws.com` | camelCase         |
 | `openrouter`        | `openrouter.ai`                           | OpenAI-compatible |
 | `vercel`            | `gateway.ai.vercel.app`                   | OpenAI-compatible |
 | `xai`               | `api.x.ai`                                | OpenAI-compatible |
+| `google`            | `generativelanguage.googleapis.com`       | camelCase         |
+| `google-vertex`     | `aiplatform.googleapis.com`               | camelCase         |
+| `azure`             | `models.inference.ai.azure.com`           | OpenAI-compatible |
+| `mistral`           | `api.mistral.ai`                          | snake_case        |
+| `cohere`            | `api.cohere.com`                          | mixed             |
 | `meta`              | `api.meta.ai`                             | OpenAI-compatible |
 | `groq`              | `api.groq.com`                            | OpenAI-compatible |
 | `fal`               | `fal.run`                                 | flexible          |
@@ -386,9 +422,8 @@ normalize(parse("llm://anthropic/claude-sonnet-5?max=4096&cache=5m")).config
   .params;
 // { max_tokens: "4096", cache_control: "ephemeral", cache_ttl: "5m" }
 
-normalize(
-  parse("llm://bedrock/anthropic.claude-sonnet-5-20250929-v1:0?cache=1h"),
-).config.params;
+normalize(parse("llm://bedrock/anthropic.claude-sonnet-5?cache=1h")).config
+  .params;
 // { cache_control: "ephemeral", cache_ttl: "1h" }
 ```
 
