@@ -25,8 +25,8 @@
 ```ini
 llm://openai/gpt-5.5?effort=medium&maxTokens=2000
 llm://anthropic/claude-opus-4-8?cache=5m&effort=max
-llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.5&max=4096
-llm://openrouter/anthropic/claude-sonnet-4-5?temp=0.7&max=2000
+llm://bedrock/anthropic.claude-sonnet-5-20250929-v1:0?temp=0.5&max=4096
+llm://openrouter/anthropic/claude-sonnet-5?temp=0.7&max=2000
 ```
 
 Every LLM provider invented slightly different names for the same knobs:
@@ -75,14 +75,14 @@ bun add llm-strings
 ```ts
 import { build, normalize, parse, validate } from "llm-strings";
 
-const input = "llm://openai/gpt-4o?temp=0.7&max=2000&topp=0.9";
+const input = "llm://openai/gpt-5.5?temp=0.7&max=2000&topp=0.9";
 
 const parsed = parse(input);
 // {
-//   raw: "llm://openai/gpt-4o?temp=0.7&max=2000&topp=0.9",
+//   raw: "llm://openai/gpt-5.5?temp=0.7&max=2000&topp=0.9",
 //   host: "api.openai.com",
 //   hostAlias: "openai",
-//   model: "gpt-4o",
+//   model: "gpt-5.5",
 //   params: { temp: "0.7", max: "2000", topp: "0.9" }
 // }
 
@@ -90,7 +90,7 @@ const { config, provider } = normalize(parsed);
 // provider: "openai"
 // config.params: { temperature: "0.7", max_tokens: "2000", top_p: "0.9" }
 
-const issues = validate("llm://anthropic/claude-sonnet-4-5?temp=0.7&top_p=0.9");
+const issues = validate("llm://anthropic/claude-sonnet-5?temp=0.7&top_p=0.9");
 // [
 //   {
 //     param: "temperature",
@@ -102,10 +102,10 @@ const issues = validate("llm://anthropic/claude-sonnet-4-5?temp=0.7&top_p=0.9");
 
 const url = build({
   host: "anthropic",
-  model: "claude-sonnet-4-5",
+  model: "claude-sonnet-5",
   params: { temp: "0.7", max: "4096" },
 });
-// "llm://api.anthropic.com/claude-sonnet-4-5?temp=0.7&max=4096"
+// "llm://api.anthropic.com/claude-sonnet-5?temp=0.7&max=4096"
 ```
 
 ## Format
@@ -130,7 +130,7 @@ credentials: store them in secret managers or env vars, and avoid logging them.
 ### One env var for your model config
 
 ```bash
-LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-4o?temp=0.7&max=2000"
+LLM_URL="llm://worker:sk-proj-abc123@openai/gpt-5.5?temp=0.7&max=2000"
 ```
 
 ```ts
@@ -163,24 +163,24 @@ console.log(provider); // "openai"
 
 ```bash
 # OpenAI
-LLM_URL="llm://openai/gpt-4o?temp=0.7&max=2000"
+LLM_URL="llm://openai/gpt-5.5?temp=0.7&max=2000"
 
 # Anthropic
-LLM_URL="llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000"
+LLM_URL="llm://anthropic/claude-sonnet-5?temp=0.7&max=2000"
 
 # Google
 LLM_URL="llm://google/gemini-3.5-flash?temp=0.7&max=2000"
 
 # Bedrock
-LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0?temp=0.7&max=2000"
+LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-5-20250929-v1:0?temp=0.7&max=2000"
 ```
 
 ```ts
 import { normalize, parse } from "llm-strings";
 
 for (const value of [
-  "llm://openai/gpt-4o?temp=0.7&max=2000",
-  "llm://anthropic/claude-sonnet-4-5?temp=0.7&max=2000",
+  "llm://openai/gpt-5.5?temp=0.7&max=2000",
+  "llm://anthropic/claude-sonnet-5?temp=0.7&max=2000",
   "llm://google/gemini-3.5-flash?temp=0.7&max=2000",
 ]) {
   const { config, provider } = normalize(parse(value));
@@ -220,7 +220,7 @@ include a scheme or path; only the host portion is used.
 ```ts
 import { validate } from "llm-strings";
 
-validate("llm://openai/gpt-4o?temp=3.0");
+validate("llm://openai/gpt-5.5?temp=3.0");
 // [{ param: "temperature", message: "\"temperature\" must be <= 2, got 3", ... }]
 
 validate("llm://openai/gpt-5.5?temp=0.7&max=2000");
@@ -263,7 +263,7 @@ need it:
 const { createAiSdkProviderOptions } = await import("llm-strings/ai-sdk");
 
 const { providerOptions } = createAiSdkProviderOptions(
-  "llm://anthropic/claude-sonnet-4-5?cache=1h&effort=max",
+  "llm://anthropic/claude-sonnet-5?cache=1h&effort=max",
 );
 
 // {
@@ -378,16 +378,16 @@ them to provider-native names.
 ```ts
 import { normalize, parse } from "llm-strings";
 
-normalize(parse("llm://anthropic/claude-sonnet-4-5?max=4096&cache=true")).config
+normalize(parse("llm://anthropic/claude-sonnet-5?max=4096&cache=true")).config
   .params;
 // { max_tokens: "4096", cache_control: "ephemeral" }
 
-normalize(parse("llm://anthropic/claude-sonnet-4-5?max=4096&cache=5m")).config
+normalize(parse("llm://anthropic/claude-sonnet-5?max=4096&cache=5m")).config
   .params;
 // { max_tokens: "4096", cache_control: "ephemeral", cache_ttl: "5m" }
 
 normalize(
-  parse("llm://bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0?cache=1h"),
+  parse("llm://bedrock/anthropic.claude-sonnet-5-20250929-v1:0?cache=1h"),
 ).config.params;
 // { cache_control: "ephemeral", cache_ttl: "1h" }
 ```
