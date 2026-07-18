@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+minimumReleaseAge: 1900
+minimumReleaseAgeStrict: true
+confirmModulesPurge: false
