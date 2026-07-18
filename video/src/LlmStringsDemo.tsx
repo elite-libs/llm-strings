@@ -67,11 +67,13 @@ const Choice = ({
   icon,
   active,
   accent,
+  focused = false,
 }: {
   label: string;
   icon?: string;
   active: boolean;
   accent: string;
+  focused?: boolean;
 }) => (
   <div
     style={{
@@ -88,6 +90,7 @@ const Choice = ({
       color: active ? "#fff" : "#9da4bc",
       fontSize: 27,
       fontWeight: 650,
+      scale: focused ? 1.055 : 1,
     }}
   >
     {icon ? (
@@ -112,36 +115,44 @@ export const LlmStringsDemo = () => {
   const model = fade(frame, 128, 146);
   const thinking = fade(frame, 198, 216);
   const done = fade(frame, 278, 298);
+  const focus =
+    frame >= 72 && frame < 108
+      ? "provider"
+      : frame >= 142 && frame < 178
+        ? "model"
+        : frame >= 214 && frame < 250
+          ? "thinking"
+          : null;
   const cameraScale = interpolate(
     frame,
-    [0, 65, 145, 215, 300, 359],
-    [0.89, 1.02, 1.12, 1.18, 1.04, 1.1],
-    { extrapolateRight: "clamp" },
+    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
+    [0.89, 1.02, 1.08, 1.6, 1.6, 1.25, 1.1, 1.16, 1.6, 1.6, 1.3, 1.1, 1.16, 1.55, 1.55, 1.24, 1.05, 1, 1.1],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cameraX = interpolate(
     frame,
-    [0, 100, 180, 250, 359],
-    [-70, -24, 44, 18, 0],
-    { extrapolateRight: "clamp" },
+    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
+    [-70, -20, 20, 235, 235, 70, 0, -40, -225, -225, -70, 0, 0, 0, 0, 0, 0, 0, 0],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cameraY = interpolate(
     frame,
-    [0, 100, 180, 250, 359],
-    [38, 4, -25, -4, 0],
-    { extrapolateRight: "clamp" },
+    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
+    [38, 2, 0, -18, -18, 0, 0, -16, -18, -18, 0, 0, -20, -145, -145, -34, 0, 0, 0],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cursorOpacity = provider || model || thinking ? 1 : 0;
   const cursorX = interpolate(
     frame,
-    [65, 95, 130, 160, 201, 235, 278],
-    [1180, 1212, 1020, 1050, 1160, 1175, 960],
-    { extrapolateRight: "clamp" },
+    [58, 70, 82, 104, 118, 140, 152, 174, 190, 212, 224, 246, 270],
+    [680, 470, 470, 470, 680, 1010, 1010, 1010, 820, 775, 775, 775, 920],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cursorY = interpolate(
     frame,
-    [65, 95, 130, 160, 201, 235, 278],
-    [485, 505, 510, 530, 650, 670, 800],
-    { extrapolateRight: "clamp" },
+    [58, 70, 82, 104, 118, 140, 152, 174, 190, 212, 224, 246, 270],
+    [500, 350, 350, 350, 500, 350, 350, 350, 480, 560, 560, 560, 700],
+    { easing: ease, extrapolateRight: "clamp" },
   );
 
   return (
@@ -269,11 +280,11 @@ export const LlmStringsDemo = () => {
                 marginTop: 30,
                 padding: "24px 28px",
                 borderRadius: 18,
-                background: "#070714",
-                border: "1px solid #ffffff16",
-                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                fontSize: 31,
-                whiteSpace: "nowrap",
+              background: "#070714",
+              border: "1px solid #ffffff16",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: frame > 215 ? 21 : 31,
+              whiteSpace: "nowrap",
               }}
             >
               <span style={{ color: "#74788d" }}>llm://</span>
@@ -299,8 +310,16 @@ export const LlmStringsDemo = () => {
                 style={{
                   padding: 24,
                   borderRadius: 20,
-                  background: "rgba(255,255,255,.025)",
-                  border: "1px solid rgba(255,255,255,.08)",
+                  background:
+                    focus === "provider"
+                      ? "rgba(162,153,255,.12)"
+                      : "rgba(255,255,255,.025)",
+                  border: `1px solid ${focus === "provider" ? "#a299ff" : "rgba(255,255,255,.08)"}`,
+                  opacity: focus && focus !== "provider" ? 0.34 : 1,
+                  boxShadow:
+                    focus === "provider"
+                      ? "0 0 0 2px #a299ff28, 0 24px 50px #7165ff29"
+                      : "none",
                 }}
               >
                 <div
@@ -319,14 +338,23 @@ export const LlmStringsDemo = () => {
                   icon="openrouter.svg"
                   accent="#a299ff"
                   active={frame >= 97}
+                  focused={focus === "provider"}
                 />
               </div>
               <div
                 style={{
                   padding: 24,
                   borderRadius: 20,
-                  background: "rgba(255,255,255,.025)",
-                  border: "1px solid rgba(255,255,255,.08)",
+                  background:
+                    focus === "model"
+                      ? "rgba(93,136,255,.12)"
+                      : "rgba(255,255,255,.025)",
+                  border: `1px solid ${focus === "model" ? "#5d88ff" : "rgba(255,255,255,.08)"}`,
+                  opacity: focus && focus !== "model" ? 0.34 : 1,
+                  boxShadow:
+                    focus === "model"
+                      ? "0 0 0 2px #5d88ff28, 0 24px 50px #5d88ff29"
+                      : "none",
                 }}
               >
                 <div
@@ -345,6 +373,7 @@ export const LlmStringsDemo = () => {
                   icon="deepseek.svg"
                   accent="#5d88ff"
                   active={frame >= 163}
+                  focused={focus === "model"}
                 />
               </div>
             </div>
@@ -355,11 +384,18 @@ export const LlmStringsDemo = () => {
                 alignItems: "center",
                 padding: "20px 24px",
                 borderRadius: 20,
-                background:
-                  frame >= 235
+              background:
+                  focus === "thinking"
+                    ? "linear-gradient(90deg, #3ecdb236, #6659fd48)"
+                    : frame >= 235
                     ? "linear-gradient(90deg, #3ecdb21f, #6659fd2e)"
                     : "rgba(255,255,255,.025)",
-                border: `1px solid ${frame >= 235 ? "#4ee4c277" : "rgba(255,255,255,.08)"}`,
+              border: `1px solid ${focus === "thinking" ? "#4ee4c2" : frame >= 235 ? "#4ee4c277" : "rgba(255,255,255,.08)"}`,
+              opacity: focus && focus !== "thinking" ? 0.34 : 1,
+              boxShadow:
+                focus === "thinking"
+                  ? "0 0 0 2px #4ee4c228, 0 24px 50px #3ecdb229"
+                  : "none",
               }}
             >
               <div>
@@ -432,42 +468,6 @@ export const LlmStringsDemo = () => {
           <br />
           in seconds.
         </div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 110,
-          bottom: 100,
-          opacity: provider * (1 - model),
-          fontSize: 42,
-          fontWeight: 750,
-        }}
-      >
-        1. Choose OpenRouter
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 110,
-          bottom: 100,
-          opacity: model * (1 - thinking),
-          fontSize: 42,
-          fontWeight: 750,
-        }}
-      >
-        2. Pick DeepSeek V4 Flash
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          left: 110,
-          bottom: 100,
-          opacity: thinking * (1 - done),
-          fontSize: 42,
-          fontWeight: 750,
-        }}
-      >
-        3. Set thinking to low
       </div>
       <div
         style={{
