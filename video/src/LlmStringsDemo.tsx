@@ -118,8 +118,8 @@ export const LlmStringsDemo = () => {
   const thinkingFocus = fade(frame, 210, 224) * (1 - fade(frame, 244, 256));
   const cameraScale = interpolate(
     frame,
-    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
-    [0.89, 1, 1.55, 1.55, 1.55, 1.55, 1.48, 1.48, 1.05, 1, 1.1],
+    [0, 45, 90, 115, 135, 165, 185, 205, 225, 248, 280, 305, 359],
+    [0.89, 1.02, 1.62, 1.62, 1.24, 1.7, 1.7, 1.26, 1.6, 1.6, 1.05, 1, 1.1],
     { easing: motionEase, extrapolateRight: "clamp" },
   );
   const cameraX = interpolate(
@@ -203,9 +203,8 @@ export const LlmStringsDemo = () => {
             position: "relative",
             width: 1280,
             height: 760,
-            scale: cameraScale,
             translate: `${cameraX}px ${cameraY}px`,
-            transform: "rotateX(8deg) rotateY(-13deg)",
+            transform: `scale(${cameraScale}) rotateX(8deg) rotateY(-13deg)`,
             transformStyle: "preserve-3d",
           }}
         >
