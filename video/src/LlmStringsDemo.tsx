@@ -67,13 +67,13 @@ const Choice = ({
   icon,
   active,
   accent,
-  focused = false,
+  focusAmount = 0,
 }: {
   label: string;
   icon?: string;
   active: boolean;
   accent: string;
-  focused?: boolean;
+  focusAmount?: number;
 }) => (
   <div
     style={{
@@ -90,7 +90,7 @@ const Choice = ({
       color: active ? "#fff" : "#9da4bc",
       fontSize: 27,
       fontWeight: 650,
-      scale: focused ? 1.055 : 1,
+      scale: 1 + focusAmount * 0.055,
     }}
   >
     {icon ? (
@@ -111,48 +111,41 @@ const Choice = ({
 export const LlmStringsDemo = () => {
   const frame = useCurrentFrame();
   const intro = fade(frame, 0, 18) * (1 - fade(frame, 55, 70));
-  const provider = fade(frame, 64, 82);
-  const model = fade(frame, 128, 146);
-  const thinking = fade(frame, 198, 216);
   const done = fade(frame, 278, 298);
-  const focus =
-    frame >= 72 && frame < 108
-      ? "provider"
-      : frame >= 142 && frame < 178
-        ? "model"
-        : frame >= 214 && frame < 250
-          ? "thinking"
-          : null;
+  const motionEase = Easing.bezier(0.22, 0.61, 0.36, 1);
+  const providerFocus = fade(frame, 76, 90) * (1 - fade(frame, 112, 124));
+  const modelFocus = fade(frame, 150, 164) * (1 - fade(frame, 180, 192));
+  const thinkingFocus = fade(frame, 210, 224) * (1 - fade(frame, 244, 256));
   const cameraScale = interpolate(
     frame,
-    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
-    [0.89, 1.02, 1.08, 1.6, 1.6, 1.25, 1.1, 1.16, 1.6, 1.6, 1.3, 1.1, 1.16, 1.55, 1.55, 1.24, 1.05, 1, 1.1],
-    { easing: ease, extrapolateRight: "clamp" },
+    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
+    [0.89, 1, 1.55, 1.55, 1.55, 1.55, 1.48, 1.48, 1.05, 1, 1.1],
+    { easing: motionEase, extrapolateRight: "clamp" },
   );
   const cameraX = interpolate(
     frame,
-    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
-    [-70, -20, 20, 235, 235, 70, 0, -40, -225, -225, -70, 0, 0, 0, 0, 0, 0, 0, 0],
-    { easing: ease, extrapolateRight: "clamp" },
+    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
+    [-70, -20, 235, 235, -225, -225, 0, 0, 0, 0, 0],
+    { easing: motionEase, extrapolateRight: "clamp" },
   );
   const cameraY = interpolate(
     frame,
-    [0, 54, 62, 72, 100, 112, 126, 134, 142, 170, 182, 198, 206, 214, 242, 254, 278, 300, 359],
-    [38, 2, 0, -18, -18, 0, 0, -16, -18, -18, 0, 0, -20, -145, -145, -34, 0, 0, 0],
-    { easing: ease, extrapolateRight: "clamp" },
+    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
+    [38, 2, -18, -18, -18, -18, -145, -145, 0, 0, 0],
+    { easing: motionEase, extrapolateRight: "clamp" },
   );
-  const cursorOpacity = provider || model || thinking ? 1 : 0;
+  const cursorOpacity = fade(frame, 48, 60);
   const cursorX = interpolate(
     frame,
-    [58, 70, 82, 104, 118, 140, 152, 174, 190, 212, 224, 246, 270],
-    [680, 470, 470, 470, 680, 1010, 1010, 1010, 820, 775, 775, 775, 920],
-    { easing: ease, extrapolateRight: "clamp" },
+    [48, 90, 115, 165, 185, 225, 248, 270, 278],
+    [900, 470, 470, 1010, 1010, 775, 775, 900, 920],
+    { easing: motionEase, extrapolateRight: "clamp" },
   );
   const cursorY = interpolate(
     frame,
-    [58, 70, 82, 104, 118, 140, 152, 174, 190, 212, 224, 246, 270],
-    [500, 350, 350, 350, 500, 350, 350, 350, 480, 560, 560, 560, 700],
-    { easing: ease, extrapolateRight: "clamp" },
+    [48, 90, 115, 165, 185, 225, 248, 270, 278],
+    [600, 350, 350, 350, 350, 560, 560, 700, 700],
+    { easing: motionEase, extrapolateRight: "clamp" },
   );
 
   return (
@@ -310,16 +303,10 @@ export const LlmStringsDemo = () => {
                 style={{
                   padding: 24,
                   borderRadius: 20,
-                  background:
-                    focus === "provider"
-                      ? "rgba(162,153,255,.12)"
-                      : "rgba(255,255,255,.025)",
-                  border: `1px solid ${focus === "provider" ? "#a299ff" : "rgba(255,255,255,.08)"}`,
-                  opacity: focus && focus !== "provider" ? 0.34 : 1,
-                  boxShadow:
-                    focus === "provider"
-                      ? "0 0 0 2px #a299ff28, 0 24px 50px #7165ff29"
-                      : "none",
+                  background: `rgba(162, 153, 255, ${0.025 + providerFocus * 0.095})`,
+                  border: `1px solid rgba(162, 153, 255, ${0.08 + providerFocus * 0.92})`,
+                  opacity: 1 - Math.max(modelFocus, thinkingFocus) * 0.66,
+                  boxShadow: `0 0 0 2px rgba(162, 153, 255, ${providerFocus * 0.16}), 0 24px 50px rgba(113, 101, 255, ${providerFocus * 0.16})`,
                 }}
               >
                 <div
@@ -338,23 +325,17 @@ export const LlmStringsDemo = () => {
                   icon="openrouter.svg"
                   accent="#a299ff"
                   active={frame >= 97}
-                  focused={focus === "provider"}
+                  focusAmount={providerFocus}
                 />
               </div>
               <div
                 style={{
                   padding: 24,
                   borderRadius: 20,
-                  background:
-                    focus === "model"
-                      ? "rgba(93,136,255,.12)"
-                      : "rgba(255,255,255,.025)",
-                  border: `1px solid ${focus === "model" ? "#5d88ff" : "rgba(255,255,255,.08)"}`,
-                  opacity: focus && focus !== "model" ? 0.34 : 1,
-                  boxShadow:
-                    focus === "model"
-                      ? "0 0 0 2px #5d88ff28, 0 24px 50px #5d88ff29"
-                      : "none",
+                  background: `rgba(93, 136, 255, ${0.025 + modelFocus * 0.095})`,
+                  border: `1px solid rgba(93, 136, 255, ${0.08 + modelFocus * 0.92})`,
+                  opacity: 1 - Math.max(providerFocus, thinkingFocus) * 0.66,
+                  boxShadow: `0 0 0 2px rgba(93, 136, 255, ${modelFocus * 0.16}), 0 24px 50px rgba(93, 136, 255, ${modelFocus * 0.16})`,
                 }}
               >
                 <div
@@ -373,7 +354,7 @@ export const LlmStringsDemo = () => {
                   icon="deepseek.svg"
                   accent="#5d88ff"
                   active={frame >= 163}
-                  focused={focus === "model"}
+                  focusAmount={modelFocus}
                 />
               </div>
             </div>
@@ -384,18 +365,10 @@ export const LlmStringsDemo = () => {
                 alignItems: "center",
                 padding: "20px 24px",
                 borderRadius: 20,
-              background:
-                  focus === "thinking"
-                    ? "linear-gradient(90deg, #3ecdb236, #6659fd48)"
-                    : frame >= 235
-                    ? "linear-gradient(90deg, #3ecdb21f, #6659fd2e)"
-                    : "rgba(255,255,255,.025)",
-              border: `1px solid ${focus === "thinking" ? "#4ee4c2" : frame >= 235 ? "#4ee4c277" : "rgba(255,255,255,.08)"}`,
-              opacity: focus && focus !== "thinking" ? 0.34 : 1,
-              boxShadow:
-                focus === "thinking"
-                  ? "0 0 0 2px #4ee4c228, 0 24px 50px #3ecdb229"
-                  : "none",
+              background: `linear-gradient(90deg, rgba(62, 205, 178, ${0.025 + thinkingFocus * 0.18}), rgba(102, 89, 253, ${0.025 + thinkingFocus * 0.24}))`,
+              border: `1px solid rgba(78, 228, 194, ${0.08 + thinkingFocus * 0.92})`,
+              opacity: 1 - Math.max(providerFocus, modelFocus) * 0.66,
+              boxShadow: `0 0 0 2px rgba(78, 228, 194, ${thinkingFocus * 0.16}), 0 24px 50px rgba(62, 205, 178, ${thinkingFocus * 0.16})`,
               }}
             >
               <div>
