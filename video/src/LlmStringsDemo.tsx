@@ -2,59 +2,63 @@ import React from "react";
 import {
   AbsoluteFill,
   Easing,
-  Img,
   interpolate,
-  staticFile,
   useCurrentFrame,
 } from "remotion";
 
-const ease = Easing.bezier(0.16, 1, 0.3, 1);
-const at = (
-  frame: number,
-  start: number,
-  end: number,
-  from: number,
-  to: number,
-) =>
+const ease = Easing.bezier(0.22, 0.61, 0.36, 1);
+const value = (frame: number, start: number, end: number, from: number, to: number) =>
   interpolate(frame, [start, end], [from, to], {
     easing: ease,
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 const fade = (frame: number, start: number, end: number) =>
-  at(frame, start, end, 0, 1);
+  value(frame, start, end, 0, 1);
 
-const panel = {
-  background: "linear-gradient(135deg, rgba(24,24,48,.98), rgba(10,10,24,.98))",
-  border: "1px solid rgba(255,255,255,.11)",
-  boxShadow: "0 35px 90px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.06)",
-  borderRadius: 28,
-} as const;
-
-const Cursor = ({
-  x,
-  y,
-  visible = 1,
+const SyntaxString = ({
+  host,
+  model,
+  params,
+  fontSize,
 }: {
-  x: number;
-  y: number;
-  visible?: number;
+  host: string;
+  model: string;
+  params?: string;
+  fontSize: number;
 }) => (
+  <div
+    style={{
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+      fontSize,
+      letterSpacing: "-0.055em",
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span style={{ color: "#8a8fa6" }}>llm://</span>
+    <span style={{ color: "#a9a4ff" }}>{host}</span>
+    <span style={{ color: "#8a8fa6" }}>/</span>
+    <span style={{ color: "#58e8be" }}>{model}</span>
+    {params && <span style={{ color: "#ffc75f" }}>{params}</span>}
+  </div>
+);
+
+const Pointer = ({ x, y, opacity }: { x: number; y: number; opacity: number }) => (
   <div
     style={{
       position: "absolute",
       left: x,
       top: y,
-      opacity: visible,
-      zIndex: 8,
-      filter: "drop-shadow(0 10px 12px rgba(0,0,0,.45))",
+      opacity,
+      zIndex: 10,
+      filter: "drop-shadow(0 9px 12px rgba(0,0,0,.45))",
     }}
   >
-    <svg width="54" height="66" viewBox="0 0 54 66" fill="none">
+    <svg width="48" height="59" viewBox="0 0 48 59" fill="none">
       <path
-        d="M6 4l37 31-17 2 9 19-11 5-9-20-9 14V4z"
+        d="M5 4l34 28-15 2 8 17-10 5-8-18-9 13V4z"
         fill="white"
-        stroke="#0a0a18"
+        stroke="#080812"
         strokeWidth="4"
         strokeLinejoin="round"
       />
@@ -62,436 +66,242 @@ const Cursor = ({
   </div>
 );
 
-const Choice = ({
+const Field = ({
   label,
-  icon,
+  content,
   active,
-  accent,
-  focusAmount = 0,
+  opacity = 1,
 }: {
   label: string;
-  icon?: string;
+  content: React.ReactNode;
   active: boolean;
-  accent: string;
-  focusAmount?: number;
+  opacity?: number;
 }) => (
   <div
     style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 18,
-      padding: "18px 22px",
-      borderRadius: 16,
-      border: `1px solid ${active ? accent : "rgba(255,255,255,.09)"}`,
-      background: active ? `${accent}22` : "rgba(255,255,255,.035)",
-      boxShadow: active
-        ? `0 0 0 2px ${accent}22, 0 12px 28px ${accent}22`
-        : "none",
-      color: active ? "#fff" : "#9da4bc",
-      fontSize: 27,
-      fontWeight: 650,
-      scale: 1 + focusAmount * 0.055,
+      padding: "22px 24px",
+      minHeight: 130,
+      borderRadius: 21,
+      background: active ? "rgba(129, 120, 255, .12)" : "rgba(255,255,255,.025)",
+      border: `1px solid ${active ? "#9189ff" : "rgba(255,255,255,.09)"}`,
+      boxShadow: active ? "0 0 0 2px rgba(145,137,255,.15), 0 22px 52px rgba(75,64,238,.2)" : "none",
+      opacity,
     }}
   >
-    {icon ? (
-      <Img
-        src={staticFile(icon)}
-        style={{ width: 36, height: 36, objectFit: "contain" }}
-      />
-    ) : (
-      <span style={{ width: 36, textAlign: "center" }}>✦</span>
-    )}
-    {label}
-    {active && (
-      <span style={{ marginLeft: "auto", color: accent, fontSize: 23 }}>✓</span>
-    )}
+    <div
+      style={{
+        color: "#8990aa",
+        fontSize: 17,
+        letterSpacing: 1.6,
+        textTransform: "uppercase",
+        fontWeight: 750,
+        marginBottom: 15,
+      }}
+    >
+      {label}
+    </div>
+    {content}
   </div>
 );
 
 export const LlmStringsDemo = () => {
   const frame = useCurrentFrame();
-  const intro = fade(frame, 0, 18) * (1 - fade(frame, 55, 70));
-  const done = fade(frame, 278, 298);
-  const motionEase = Easing.bezier(0.22, 0.61, 0.36, 1);
-  const providerFocus = fade(frame, 76, 90) * (1 - fade(frame, 112, 124));
-  const modelFocus = fade(frame, 150, 164) * (1 - fade(frame, 180, 192));
-  const thinkingFocus = fade(frame, 210, 224) * (1 - fade(frame, 244, 256));
+  const initial = "llm://openai/gpt-5.5?cache=true";
+  const typedLength = Math.min(initial.length, Math.max(0, Math.floor((frame - 4) * 0.82)));
+  const typing = fade(frame, 0, 8) * (1 - fade(frame, 56, 78));
+  const uiOpacity = fade(frame, 52, 74) * (1 - fade(frame, 248, 270));
+  const modelOpen = fade(frame, 122, 138) * (1 - fade(frame, 178, 190));
+  const switched = fade(frame, 166, 184);
+  const providerFocus = fade(frame, 78, 92) * (1 - fade(frame, 112, 128));
+  const modelFocus = fade(frame, 136, 152) * (1 - fade(frame, 192, 206));
+  const end = fade(frame, 248, 270);
   const cameraScale = interpolate(
     frame,
-    [0, 45, 90, 115, 135, 165, 185, 205, 225, 248, 280, 305, 359],
-    [0.89, 1.02, 1.62, 1.62, 1.24, 1.7, 1.7, 1.26, 1.6, 1.6, 1.05, 1, 1.1],
-    { easing: motionEase, extrapolateRight: "clamp" },
+    [52, 78, 102, 122, 152, 180, 210, 248],
+    [0.84, 1.08, 1.5, 1.22, 1.62, 1.62, 1.18, 0.92],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cameraX = interpolate(
     frame,
-    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
-    [-70, -20, 235, 235, -225, -225, 0, 0, 0, 0, 0],
-    { easing: motionEase, extrapolateRight: "clamp" },
+    [52, 78, 102, 122, 152, 180, 210, 248],
+    [-35, 92, 192, 72, -180, -180, 0, 0],
+    { easing: ease, extrapolateRight: "clamp" },
   );
-  const cameraY = interpolate(
-    frame,
-    [0, 45, 90, 115, 165, 185, 225, 248, 280, 305, 359],
-    [38, 2, -18, -18, -18, -18, -145, -145, 0, 0, 0],
-    { easing: motionEase, extrapolateRight: "clamp" },
-  );
-  const cursorOpacity = fade(frame, 48, 60);
+  const cursorOpacity = fade(frame, 70, 82) * (1 - fade(frame, 194, 210));
   const cursorX = interpolate(
     frame,
-    [48, 90, 115, 165, 185, 225, 248, 270, 278],
-    [900, 470, 470, 1010, 1010, 775, 775, 900, 920],
-    { easing: motionEase, extrapolateRight: "clamp" },
+    [70, 102, 122, 152, 178, 198],
+    [850, 430, 760, 955, 955, 840],
+    { easing: ease, extrapolateRight: "clamp" },
   );
   const cursorY = interpolate(
     frame,
-    [48, 90, 115, 165, 185, 225, 248, 270, 278],
-    [600, 350, 350, 350, 350, 560, 560, 700, 700],
-    { easing: motionEase, extrapolateRight: "clamp" },
+    [70, 102, 122, 152, 178, 198],
+    [560, 450, 500, 455, 455, 700],
+    { easing: ease, extrapolateRight: "clamp" },
   );
+  const parameterOffset = interpolate(frame, [260, 310], [0, -250], {
+    easing: Easing.bezier(0.1, 0.82, 0.24, 1),
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const finalLabel = fade(frame, 320, 346);
 
   return (
     <AbsoluteFill
       style={{
         overflow: "hidden",
+        color: "#f8f8ff",
         background: "#080812",
-        color: "#f7f7ff",
         fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
       }}
     >
       <AbsoluteFill
         style={{
           background:
-            "radial-gradient(circle at 25% 20%, #5f55ff44, transparent 31%), radial-gradient(circle at 78% 75%, #36d6c744, transparent 32%), linear-gradient(120deg, #0a0a1c, #12102d 48%, #07171c)",
+            "radial-gradient(circle at 20% 10%, #6659fd4d, transparent 35%), radial-gradient(circle at 80% 82%, #35d5bf42, transparent 33%), linear-gradient(120deg, #0a0a1d, #14102e 50%, #07181d)",
         }}
       />
       <div
         style={{
           position: "absolute",
-          width: 1250,
-          height: 1250,
+          width: 1180,
+          height: 1180,
           borderRadius: "50%",
-          border: "1px solid #a299ff26",
-          top: -520,
-          right: -170,
-          rotate: `${frame * 0.12}deg`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          width: 900,
-          height: 900,
-          borderRadius: "50%",
-          border: "1px solid #4cf5dc22",
-          bottom: -600,
-          left: -190,
-          rotate: `${-frame * 0.09}deg`,
+          border: "1px solid #a9a4ff28",
+          top: -610,
+          right: -150,
+          rotate: `${frame * 0.11}deg`,
         }}
       />
 
-      <div
+      <AbsoluteFill
         style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          perspective: 1800,
+          opacity: typing,
         }}
       >
+        <div style={{ width: 1460 }}>
+          <div
+            style={{
+              color: "#6fe8d1",
+              fontSize: 25,
+              letterSpacing: 2.8,
+              textTransform: "uppercase",
+              fontWeight: 800,
+              marginBottom: 30,
+            }}
+          >
+            LLM strings
+          </div>
+          <div
+            style={{
+              padding: "46px 52px",
+              borderRadius: 30,
+              background: "rgba(7,7,20,.84)",
+              border: "1px solid rgba(255,255,255,.12)",
+              boxShadow: "0 38px 100px rgba(0,0,0,.45)",
+            }}
+          >
+            <div style={{ fontFamily: "ui-monospace, monospace", fontSize: 65, letterSpacing: "-0.07em" }}>
+              <span style={{ color: "#8a8fa6" }}>{initial.slice(0, typedLength).slice(0, 6)}</span>
+              <span style={{ color: "#a9a4ff" }}>{initial.slice(0, typedLength).slice(6, 12)}</span>
+              <span style={{ color: "#58e8be" }}>{initial.slice(0, typedLength).slice(12, 19)}</span>
+              <span style={{ color: "#ffc75f" }}>{initial.slice(0, typedLength).slice(19)}</span>
+              <span style={{ color: "#ffffff", opacity: frame % 12 < 7 ? 1 : 0 }}>|</span>
+            </div>
+          </div>
+        </div>
+      </AbsoluteFill>
+
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", perspective: 1800, opacity: uiOpacity }}>
         <div
           style={{
+            width: 1160,
+            height: 700,
             position: "relative",
-            width: 1280,
-            height: 760,
-            translate: `${cameraX}px ${cameraY}px`,
-            transform: `scale(${cameraScale}) rotateX(8deg) rotateY(-13deg)`,
+            translate: `${cameraX}px 0`,
+            transform: `scale(${cameraScale}) rotateX(7deg) rotateY(-11deg)`,
             transformStyle: "preserve-3d",
           }}
         >
+          <div style={{ position: "absolute", inset: "44px -38px -42px 58px", borderRadius: 30, background: "#070713", border: "1px solid #ffffff10", rotate: "-2deg" }} />
           <div
             style={{
-              ...panel,
               position: "absolute",
-              width: 1000,
-              height: 620,
-              left: 150,
-              top: 90,
-              padding: 44,
-              opacity: 0.55,
-              transform: "translate(-64px, 56px) rotateZ(-3deg)",
-            }}
-          />
-          <div
-            style={{
-              ...panel,
-              position: "absolute",
-              width: 1080,
-              height: 650,
-              left: 100,
-              top: 48,
-              padding: 44,
-              opacity: 0.82,
-              transform: "translate(-24px, 24px) rotateZ(-1.2deg)",
-            }}
-          />
-          <div
-            style={{
-              ...panel,
-              position: "absolute",
-              width: 1120,
-              height: 680,
-              left: 78,
-              top: 20,
-              padding: "38px 48px",
+              inset: 0,
+              padding: "38px 46px",
+              borderRadius: 30,
+              background: "linear-gradient(135deg, rgba(26,25,54,.98), rgba(9,9,23,.99))",
+              border: "1px solid rgba(255,255,255,.12)",
+              boxShadow: "0 38px 100px rgba(0,0,0,.48)",
               overflow: "hidden",
-              transformStyle: "preserve-3d",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                color: "#a7aac4",
-                fontSize: 21,
-                letterSpacing: 1.8,
-                textTransform: "uppercase",
-                fontWeight: 700,
-              }}
-            >
-              <span style={{ color: "#7c73ff", fontSize: 25 }}>◈</span> LLM
-              Strings{" "}
-              <span
-                style={{ marginLeft: "auto", color: "#5fe9cc", fontSize: 18 }}
-              >
-                CONFIG READY
-              </span>
+            <div style={{ display: "flex", color: "#a7aec9", fontSize: 20, fontWeight: 750, letterSpacing: 1.8, textTransform: "uppercase" }}>
+              <span style={{ color: "#9189ff", marginRight: 12 }}>◈</span> LLM Strings <span style={{ marginLeft: "auto", color: "#62e8ce", fontSize: 16 }}>CONFIGURE</span>
+            </div>
+            <div style={{ marginTop: 28, padding: "22px 26px", borderRadius: 18, background: "#070714", border: "1px solid #ffffff16" }}>
+              <SyntaxString host={switched > 0.5 ? "moonshotai" : "openai"} model={switched > 0.5 ? "kimi-k3" : "gpt-5.5"} params={switched > 0.5 ? undefined : "?cache=true"} fontSize={31} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 28 }}>
+              <Field
+                label="Provider"
+                active={providerFocus > 0.35}
+                opacity={1 - modelFocus * 0.65}
+                content={<div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 29, fontWeight: 760 }}><span style={{ color: switched > 0.5 ? "#f2bd5d" : "#a9a4ff" }}>●</span>{switched > 0.5 ? "Moonshot AI" : "OpenAI"}<span style={{ marginLeft: "auto", color: "#97a0ba" }}>⌄</span></div>}
+              />
+              <Field
+                label="Model"
+                active={modelFocus > 0.35}
+                opacity={1 - providerFocus * 0.65}
+                content={<div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 29, fontWeight: 760 }}><span style={{ color: "#58e8be" }}>✦</span>{switched > 0.5 ? "Kimi K3" : "GPT-5.5"}<span style={{ marginLeft: "auto", color: "#97a0ba" }}>⌄</span></div>}
+              />
+            </div>
+            <div style={{ marginTop: 20, padding: "21px 24px", display: "flex", alignItems: "center", borderRadius: 20, background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)" }}>
+              <div><div style={{ fontWeight: 760, fontSize: 22 }}>Parameters</div><div style={{ color: "#929ab5", fontSize: 17, marginTop: 5 }}>Portable configuration, one compact string.</div></div>
+              <div style={{ marginLeft: "auto", color: "#ffc75f", fontFamily: "ui-monospace, monospace", fontSize: 23 }}>{switched > 0.5 ? "—" : "cache=true"}</div>
             </div>
             <div
               style={{
-                marginTop: 30,
-                padding: "24px 28px",
-                borderRadius: 18,
-              background: "#070714",
-              border: "1px solid #ffffff16",
-              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              fontSize: frame > 215 ? 21 : 31,
-              whiteSpace: "nowrap",
+                position: "absolute",
+                top: 342,
+                right: 46,
+                width: 492,
+                padding: "15px 18px",
+                borderRadius: 16,
+                background: "#11112a",
+                border: "1px solid #6e67ee88",
+                boxShadow: "0 26px 60px rgba(0,0,0,.44)",
+                opacity: modelOpen,
+                translate: `0 ${value(frame, 122, 138, -14, 0)}px`,
               }}
             >
-              <span style={{ color: "#74788d" }}>llm://</span>
-              <span style={{ color: "#aba6ff" }}>openrouter.ai</span>
-              <span style={{ color: "#74788d" }}>/</span>
-              <span style={{ color: "#57e6bd" }}>
-                {frame < 151 ? "model" : "deepseek/deepseek-v4-flash"}
-              </span>
-              <span style={{ color: "#74788d" }}>
-                {frame > 215 ? "?thinking=low" : ""}
-              </span>
+              {[["GPT-5.5", "openai"], ["Kimi K3", "moonshotai"]].map(([name, host], index) => (
+                <div key={name} style={{ display: "flex", alignItems: "center", padding: "13px 12px", borderRadius: 10, background: index === 1 ? "rgba(88,232,190,.13)" : "transparent", color: index === 1 ? "#f8f8ff" : "#8d96b1", fontSize: 23, fontWeight: 700 }}><span style={{ color: index === 1 ? "#58e8be" : "#78809a", marginRight: 13 }}>✦</span>{name}<span style={{ marginLeft: "auto", fontFamily: "ui-monospace, monospace", fontSize: 15 }}>{host}</span></div>
+              ))}
             </div>
+          </div>
+          <Pointer x={cursorX} y={cursorY} opacity={cursorOpacity} />
+        </div>
+      </AbsoluteFill>
 
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 18,
-                marginTop: 28,
-              }}
-            >
-              <div
-                style={{
-                  padding: 24,
-                  borderRadius: 20,
-                  background: `rgba(162, 153, 255, ${0.025 + providerFocus * 0.095})`,
-                  border: `1px solid rgba(162, 153, 255, ${0.08 + providerFocus * 0.92})`,
-                  opacity: 1 - Math.max(modelFocus, thinkingFocus) * 0.66,
-                  boxShadow: `0 0 0 2px rgba(162, 153, 255, ${providerFocus * 0.16}), 0 24px 50px rgba(113, 101, 255, ${providerFocus * 0.16})`,
-                }}
-              >
-                <div
-                  style={{
-                    color: "#8990aa",
-                    fontSize: 18,
-                    letterSpacing: 1.4,
-                    textTransform: "uppercase",
-                    marginBottom: 16,
-                  }}
-                >
-                  Provider
-                </div>
-                <Choice
-                  label="OpenRouter"
-                  icon="openrouter.svg"
-                  accent="#a299ff"
-                  active={frame >= 97}
-                  focusAmount={providerFocus}
-                />
-              </div>
-              <div
-                style={{
-                  padding: 24,
-                  borderRadius: 20,
-                  background: `rgba(93, 136, 255, ${0.025 + modelFocus * 0.095})`,
-                  border: `1px solid rgba(93, 136, 255, ${0.08 + modelFocus * 0.92})`,
-                  opacity: 1 - Math.max(providerFocus, thinkingFocus) * 0.66,
-                  boxShadow: `0 0 0 2px rgba(93, 136, 255, ${modelFocus * 0.16}), 0 24px 50px rgba(93, 136, 255, ${modelFocus * 0.16})`,
-                }}
-              >
-                <div
-                  style={{
-                    color: "#8990aa",
-                    fontSize: 18,
-                    letterSpacing: 1.4,
-                    textTransform: "uppercase",
-                    marginBottom: 16,
-                  }}
-                >
-                  Model
-                </div>
-                <Choice
-                  label="DeepSeek V4 Flash"
-                  icon="deepseek.svg"
-                  accent="#5d88ff"
-                  active={frame >= 163}
-                  focusAmount={modelFocus}
-                />
-              </div>
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: end, background: "rgba(8,8,18,.92)" }}>
+        <div style={{ width: 1540, textAlign: "center" }}>
+          <div style={{ color: "#62e8ce", fontWeight: 800, fontSize: 23, letterSpacing: 2.7, textTransform: "uppercase", marginBottom: 28 }}>LLM connection string</div>
+          <div style={{ display: "inline-block", padding: "35px 46px", borderRadius: 26, background: "#0b0b1c", border: "1px solid #ffffff16" }}>
+            <SyntaxString host="moonshotai" model="kimi-k3" fontSize={55} />
+          </div>
+          <div style={{ height: 130, marginTop: 42, overflow: "hidden", position: "relative", display: "flex", justifyContent: "center" }}>
+            <div style={{ translate: `0 ${parameterOffset}px`, display: "flex", flexDirection: "column", gap: 16 }}>
+              {["?cache=true", "?temperature=0.7", "?max_tokens=4096", "?thinking=low", "?stream=true"].map((parameter) => <div key={parameter} style={{ minWidth: 420, padding: "13px 22px", borderRadius: 14, background: "rgba(255,199,95,.11)", border: "1px solid rgba(255,199,95,.22)", color: "#ffc75f", fontSize: 28, fontFamily: "ui-monospace, monospace" }}>{parameter}</div>)}
             </div>
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                alignItems: "center",
-                padding: "20px 24px",
-                borderRadius: 20,
-              background: `linear-gradient(90deg, rgba(62, 205, 178, ${0.025 + thinkingFocus * 0.18}), rgba(102, 89, 253, ${0.025 + thinkingFocus * 0.24}))`,
-              border: `1px solid rgba(78, 228, 194, ${0.08 + thinkingFocus * 0.92})`,
-              opacity: 1 - Math.max(providerFocus, modelFocus) * 0.66,
-              boxShadow: `0 0 0 2px rgba(78, 228, 194, ${thinkingFocus * 0.16}), 0 24px 50px rgba(62, 205, 178, ${thinkingFocus * 0.16})`,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>Thinking</div>
-                <div style={{ color: "#9da4bc", fontSize: 17, marginTop: 5 }}>
-                  Balance speed and depth for every request.
-                </div>
-              </div>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                {["Off", "Low", "Medium", "High"].map((value) => (
-                  <span
-                    key={value}
-                    style={{
-                      padding: "11px 17px",
-                      borderRadius: 12,
-                      fontSize: 18,
-                      fontWeight: 700,
-                      background:
-                        value === "Low" && frame >= 235
-                          ? "#52dfc7"
-                          : "#ffffff0c",
-                      color:
-                        value === "Low" && frame >= 235 ? "#06201d" : "#9da4bc",
-                    }}
-                  >
-                    {value}
-                  </span>
-                ))}
-              </div>
-            </div>
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(#080812, transparent 32%, transparent 68%, #080812)" }} />
           </div>
-          <Cursor
-            x={cursorX}
-            y={cursorY}
-            visible={cursorOpacity * (1 - done)}
-          />
+          <div style={{ opacity: finalLabel, marginTop: 28, color: "#f7f7ff", fontFamily: "ui-monospace, monospace", fontWeight: 700, fontSize: 34, letterSpacing: "-0.04em" }}>[ configure with llm strings ]</div>
         </div>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          left: 110,
-          top: 118,
-          opacity: intro,
-          maxWidth: 690,
-        }}
-      >
-        <div
-          style={{
-            color: "#71f1d8",
-            fontSize: 24,
-            fontWeight: 750,
-            letterSpacing: 2.3,
-            textTransform: "uppercase",
-          }}
-        >
-          One portable config
-        </div>
-        <div
-          style={{
-            fontSize: 82,
-            lineHeight: 1.02,
-            letterSpacing: -4,
-            fontWeight: 800,
-            marginTop: 18,
-          }}
-        >
-          Route any model
-          <br />
-          in seconds.
-        </div>
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          opacity: done,
-          background: "rgba(8, 8, 18, .92)",
-        }}
-      >
-        <div
-          style={{
-            textAlign: "center",
-            scale: at(frame, 278, 325, 0.82, 1),
-            translate: `0 ${at(frame, 278, 325, 35, 0)}px`,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 27,
-              color: "#62e8ce",
-              fontWeight: 750,
-              letterSpacing: 2.4,
-              textTransform: "uppercase",
-            }}
-          >
-            Done
-          </div>
-          <div
-            style={{
-              fontSize: 84,
-              letterSpacing: -4,
-              fontWeight: 850,
-              marginTop: 16,
-            }}
-          >
-            One string. Ready to ship.
-          </div>
-          <div
-            style={{
-              marginTop: 28,
-              fontFamily: "ui-monospace, monospace",
-              color: "#b9b5ff",
-              fontSize: 30,
-            }}
-          >
-            llm://openrouter.ai/deepseek/deepseek-v4-flash?thinking=low
-          </div>
-        </div>
-      </div>
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
