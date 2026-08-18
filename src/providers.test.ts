@@ -79,6 +79,13 @@ describe("PROVIDER_META", () => {
     }
   });
 
+  it("detects current Bedrock runtime and mantle endpoints", () => {
+    expect(detectProvider("bedrock-runtime.us-east-1.amazonaws.com")).toBe(
+      "bedrock",
+    );
+    expect(detectProvider("bedrock-mantle.us-east-1.api.aws")).toBe("bedrock");
+  });
+
   it("does not detect providers from lookalike host substrings", () => {
     expect(detectProvider("my-anthropic-clone.com")).toBeUndefined();
     expect(detectProvider("openrouter.example.com")).toBeUndefined();

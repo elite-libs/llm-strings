@@ -1,5 +1,5 @@
-import { resolveHostAlias } from "./provider-core.js";
-import type { HostAlias } from "./provider-core.js";
+import { resolveHostAlias } from "./host-alias.js";
+import type { HostAlias } from "./host-alias.js";
 
 export interface LlmConnectionConfig {
   /** The original connection string */

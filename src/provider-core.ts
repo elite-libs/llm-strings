@@ -285,7 +285,8 @@ export function detectProvider(host: string): Provider | undefined {
   // Bedrock before native providers since it hosts models from multiple vendors
   if (
     hostMatches(host, "bedrock", "amazonaws.com") ||
-    hostHasLabelPrefix(host, "bedrock")
+    hostHasLabelPrefix(host, "bedrock") ||
+    (host.endsWith(".api.aws") && hostHasLabelPrefix(host, "bedrock-mantle"))
   ) {
     return "bedrock";
   }
@@ -353,7 +354,6 @@ export const ALIASES: Record<string, string> = {
   max_out: "max_tokens",
   max_output: "max_tokens",
   max_output_tokens: "max_tokens",
-  max_completion_tokens: "max_tokens",
   maxOutputTokens: "max_tokens",
   maxTokens: "max_tokens",
 
@@ -404,6 +404,15 @@ export const ALIASES: Record<string, string> = {
   cachePoint: "cache",
   cache_point: "cache",
 
+  // common OpenAI-compatible spellings
+  minP: "min_p",
+  repetitionPenalty: "repetition_penalty",
+  responseFormat: "response_format",
+  toolChoice: "tool_choice",
+  parallelToolCalls: "parallel_tool_calls",
+  topLogprobs: "top_logprobs",
+  includeReasoning: "include_reasoning",
+
   // Vercel gateway params (camelCase → snake_case)
   zeroDataRetention: "zero_data_retention",
   disallowPromptTraining: "disallow_prompt_training",
@@ -414,7 +423,7 @@ export const ALIASES: Record<string, string> = {
 
 /** Validation spec for a single provider parameter. */
 export interface ParamSpec {
-  type: "number" | "string" | "boolean";
+  type: "number" | "string" | "boolean" | "json" | "string[]";
   min?: number;
   max?: number;
   values?: string[];
@@ -464,20 +473,135 @@ const OPENAI_COMPATIBLE_DEF = {
     seed: "seed",
     stream: "stream",
     effort: "reasoning_effort",
+    min_p: "min_p",
+    repetition_penalty: "repetition_penalty",
+    response_format: "response_format",
+    tools: "tools",
+    tool_choice: "tool_choice",
+    logit_bias: "logit_bias",
+    logprobs: "logprobs",
+    top_logprobs: "top_logprobs",
+    parallel_tool_calls: "parallel_tool_calls",
+    structured_outputs: "structured_outputs",
+    verbosity: "verbosity",
+    user: "user",
+    include_reasoning: "include_reasoning",
   },
   specs: {
-    temperature: { type: "number" as const, min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    max_tokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum output tokens" },
-    max_completion_tokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum completion tokens (reasoning models)" },
-    top_p: { type: "number" as const, min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    top_k: { type: "number" as const, min: 0, default: 40, description: "Top-K sampling" },
-    frequency_penalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presence_penalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number" as const,
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    max_tokens: {
+      type: "number" as const,
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    max_completion_tokens: {
+      type: "number" as const,
+      min: 1,
+      default: 4096,
+      description: "Maximum completion tokens (reasoning models)",
+    },
+    top_p: {
+      type: "number" as const,
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    top_k: {
+      type: "number" as const,
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
+    frequency_penalty: {
+      type: "number" as const,
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presence_penalty: {
+      type: "number" as const,
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stop: { type: "string" as const, description: "Stop sequences" },
-    n: { type: "number" as const, min: 1, default: 1, description: "Completions count" },
+    n: {
+      type: "number" as const,
+      min: 1,
+      default: 1,
+      description: "Completions count",
+    },
     seed: { type: "number" as const, description: "Random seed" },
-    stream: { type: "boolean" as const, default: false, description: "Stream response" },
-    reasoning_effort: { type: "string" as const, values: REASONING_EFFORT_VALUES, default: "medium", description: "Reasoning effort" },
+    stream: {
+      type: "boolean" as const,
+      default: false,
+      description: "Stream response",
+    },
+    reasoning_effort: {
+      type: "string" as const,
+      values: REASONING_EFFORT_VALUES,
+      default: "medium",
+      description: "Reasoning effort",
+    },
+    min_p: {
+      type: "number" as const,
+      min: 0,
+      max: 1,
+      description: "Minimum token probability sampling",
+    },
+    repetition_penalty: {
+      type: "number" as const,
+      min: 0,
+      description: "Token repetition penalty",
+    },
+    response_format: {
+      type: "json" as const,
+      description: "Structured response format",
+    },
+    tools: { type: "json" as const, description: "Tool definitions" },
+    tool_choice: {
+      type: "json" as const,
+      description: "Tool selection mode or object",
+    },
+    logit_bias: { type: "json" as const, description: "Token logit bias map" },
+    logprobs: {
+      type: "boolean" as const,
+      description: "Return token log probabilities",
+    },
+    top_logprobs: {
+      type: "number" as const,
+      min: 0,
+      max: 20,
+      description: "Number of most likely tokens to return",
+    },
+    parallel_tool_calls: {
+      type: "boolean" as const,
+      description: "Allow parallel tool calls",
+    },
+    structured_outputs: {
+      type: "boolean" as const,
+      description: "Require structured output support",
+    },
+    verbosity: {
+      type: "string" as const,
+      values: ["low", "medium", "high"],
+      description: "Response verbosity",
+    },
+    user: { type: "string" as const, description: "End-user identifier" },
+    include_reasoning: {
+      type: "boolean" as const,
+      description: "Include reasoning in the response",
+    },
   },
 };
 
@@ -514,12 +638,32 @@ const FAL_DEF = {
   },
   specs: {
     ...COMMON_IMAGE_SPECS,
-    num_images: { type: "number" as const, min: 1, description: "Number of images to generate" },
-    enable_safety_checker: { type: "boolean" as const, description: "Enable safety checker" },
-    enable_safety_checks: { type: "boolean" as const, description: "Enable safety checker" },
-    enable_prompt_expansion: { type: "boolean" as const, description: "Enable prompt expansion" },
-    expand_prompt: { type: "boolean" as const, description: "Enable prompt expansion" },
-    output_format: { type: "string" as const, values: ["jpeg", "jpg", "png", "webp", "gif"], description: "Output image format" },
+    num_images: {
+      type: "number" as const,
+      min: 1,
+      description: "Number of images to generate",
+    },
+    enable_safety_checker: {
+      type: "boolean" as const,
+      description: "Enable safety checker",
+    },
+    enable_safety_checks: {
+      type: "boolean" as const,
+      description: "Enable safety checker",
+    },
+    enable_prompt_expansion: {
+      type: "boolean" as const,
+      description: "Enable prompt expansion",
+    },
+    expand_prompt: {
+      type: "boolean" as const,
+      description: "Enable prompt expansion",
+    },
+    output_format: {
+      type: "string" as const,
+      values: ["jpeg", "jpg", "png", "webp", "gif"],
+      description: "Output image format",
+    },
   },
 };
 
@@ -537,14 +681,35 @@ const REPLICATE_DEF = {
   },
   specs: {
     ...COMMON_IMAGE_SPECS,
-    input: { type: "string" as const, description: "Model input object" },
+    input: {
+      type: "json" as const,
+      description: "Model-specific input object",
+    },
     version: { type: "string" as const, description: "Model version" },
-    num_outputs: { type: "number" as const, min: 1, description: "Number of outputs to generate" },
-    num_inference_steps: { type: "number" as const, min: 1, description: "Number of inference steps" },
-    guidance_scale: { type: "number" as const, min: 0, description: "Guidance scale" },
-    stream: { type: "boolean" as const, description: "Request streaming output" },
+    num_outputs: {
+      type: "number" as const,
+      min: 1,
+      description: "Number of outputs to generate",
+    },
+    num_inference_steps: {
+      type: "number" as const,
+      min: 1,
+      description: "Number of inference steps",
+    },
+    guidance_scale: {
+      type: "number" as const,
+      min: 0,
+      description: "Guidance scale",
+    },
+    stream: {
+      type: "boolean" as const,
+      description: "Request streaming output",
+    },
     webhook: { type: "string" as const, description: "Webhook URL" },
-    webhook_events_filter: { type: "string" as const, description: "Webhook events filter" },
+    webhook_events_filter: {
+      type: "string" as const,
+      description: "Webhook events filter",
+    },
   },
 };
 
@@ -569,11 +734,24 @@ const PRODIA_DEF = {
     cfg_scale: { type: "number" as const, min: 0, description: "CFG scale" },
     upscale: { type: "boolean" as const, description: "Enable 2x upscale" },
     sampler: { type: "string" as const, description: "Sampler" },
-    width: { type: "number" as const, min: 1, max: 1024, description: "Image width" },
-    height: { type: "number" as const, min: 1, max: 1024, description: "Image height" },
+    width: {
+      type: "number" as const,
+      min: 1,
+      max: 1024,
+      description: "Image width",
+    },
+    height: {
+      type: "number" as const,
+      min: 1,
+      max: 1024,
+      description: "Image height",
+    },
     type: { type: "string" as const, description: "Prodia v2 job type" },
     config: { type: "string" as const, description: "Prodia v2 job config" },
-    price: { type: "boolean" as const, description: "Include Prodia v2 job price" },
+    price: {
+      type: "boolean" as const,
+      description: "Include Prodia v2 job price",
+    },
   },
 };
 
@@ -593,14 +771,20 @@ const LUMA_DEF = {
   specs: {
     prompt: { type: "string" as const, description: "Prompt" },
     model: { type: "string" as const, description: "Model name" },
-    aspect_ratio: { type: "string" as const, description: "Output aspect ratio" },
+    aspect_ratio: {
+      type: "string" as const,
+      description: "Output aspect ratio",
+    },
     keyframes: { type: "string" as const, description: "Generation keyframes" },
     loop: { type: "boolean" as const, description: "Generate a looping video" },
     duration: { type: "string" as const, description: "Generation duration" },
     type: { type: "string" as const, description: "Generation type" },
     image_ref: { type: "string" as const, description: "Image reference" },
     video: { type: "string" as const, description: "Video options" },
-    source: { type: "string" as const, description: "Source generation or media" },
+    source: {
+      type: "string" as const,
+      description: "Source generation or media",
+    },
   },
 };
 
@@ -620,17 +804,63 @@ const GOOGLE_COMPATIBLE_DEF = {
     responseSchema: "responseSchema",
   },
   specs: {
-    temperature: { type: "number" as const, min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-    maxOutputTokens: { type: "number" as const, min: 1, default: 4096, description: "Maximum output tokens" },
-    topP: { type: "number" as const, min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-    topK: { type: "number" as const, min: 0, default: 40, description: "Top-K sampling" },
-    frequencyPenalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-    presencePenalty: { type: "number" as const, min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+    temperature: {
+      type: "number" as const,
+      min: 0,
+      max: 2,
+      default: 0.7,
+      description: "Controls randomness",
+    },
+    maxOutputTokens: {
+      type: "number" as const,
+      min: 1,
+      default: 4096,
+      description: "Maximum output tokens",
+    },
+    topP: {
+      type: "number" as const,
+      min: 0,
+      max: 1,
+      default: 1,
+      description: "Nucleus sampling",
+    },
+    topK: {
+      type: "number" as const,
+      min: 0,
+      default: 40,
+      description: "Top-K sampling",
+    },
+    frequencyPenalty: {
+      type: "number" as const,
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize frequent tokens",
+    },
+    presencePenalty: {
+      type: "number" as const,
+      min: -2,
+      max: 2,
+      default: 0,
+      description: "Penalize repeated topics",
+    },
     stopSequences: { type: "string" as const, description: "Stop sequences" },
-    candidateCount: { type: "number" as const, min: 1, default: 1, description: "Candidate count" },
-    stream: { type: "boolean" as const, default: false, description: "Stream response" },
+    candidateCount: {
+      type: "number" as const,
+      min: 1,
+      default: 1,
+      description: "Candidate count",
+    },
+    stream: {
+      type: "boolean" as const,
+      default: false,
+      description: "Stream response",
+    },
     seed: { type: "number" as const, description: "Random seed" },
-    responseMimeType: { type: "string" as const, description: "Response MIME type" },
+    responseMimeType: {
+      type: "string" as const,
+      description: "Response MIME type",
+    },
     responseSchema: { type: "string" as const, description: "Response schema" },
   },
 };
@@ -657,22 +887,77 @@ const OPENROUTER_ROUTING_DEF = {
     plugins: "plugins",
   },
   specs: {
-    provider: { type: "string" as const, description: "Provider routing preferences" },
-    "provider.order": { type: "string" as const, description: "Provider order" },
-    "provider.only": { type: "string" as const, description: "Provider allowlist" },
-    "provider.ignore": { type: "string" as const, description: "Provider blocklist" },
-    "provider.allow_fallbacks": { type: "boolean" as const, default: true, description: "Allow fallback providers" },
-    "provider.require_parameters": { type: "boolean" as const, default: false, description: "Only route to providers that support all request params" },
-    "provider.data_collection": { type: "string" as const, values: ["allow", "deny"], default: "allow", description: "Provider data collection policy" },
-    "provider.zdr": { type: "boolean" as const, description: "Require zero data retention providers" },
-    "provider.enforce_distillable_text": { type: "boolean" as const, description: "Require providers that allow text distillation" },
-    "provider.quantizations": { type: "string" as const, description: "Allowed provider quantization levels" },
-    "provider.sort": { type: "string" as const, values: ["price", "throughput", "latency", "cost", "ttft", "tps"], description: "Provider sort strategy" },
-    "provider.preferred_min_throughput": { type: "number" as const, min: 0, description: "Preferred minimum provider throughput" },
-    "provider.preferred_max_latency": { type: "number" as const, min: 0, description: "Preferred maximum provider latency" },
-    "provider.max_price": { type: "string" as const, description: "Maximum provider price filter" },
-    transforms: { type: "string" as const, description: "Legacy OpenRouter message transforms" },
-    plugins: { type: "string" as const, description: "OpenRouter request plugins" },
+    provider: {
+      type: "string" as const,
+      description: "Provider routing preferences",
+    },
+    "provider.order": {
+      type: "string" as const,
+      description: "Provider order",
+    },
+    "provider.only": {
+      type: "string" as const,
+      description: "Provider allowlist",
+    },
+    "provider.ignore": {
+      type: "string" as const,
+      description: "Provider blocklist",
+    },
+    "provider.allow_fallbacks": {
+      type: "boolean" as const,
+      default: true,
+      description: "Allow fallback providers",
+    },
+    "provider.require_parameters": {
+      type: "boolean" as const,
+      default: false,
+      description: "Only route to providers that support all request params",
+    },
+    "provider.data_collection": {
+      type: "string" as const,
+      values: ["allow", "deny"],
+      default: "allow",
+      description: "Provider data collection policy",
+    },
+    "provider.zdr": {
+      type: "boolean" as const,
+      description: "Require zero data retention providers",
+    },
+    "provider.enforce_distillable_text": {
+      type: "boolean" as const,
+      description: "Require providers that allow text distillation",
+    },
+    "provider.quantizations": {
+      type: "string" as const,
+      description: "Allowed provider quantization levels",
+    },
+    "provider.sort": {
+      type: "string" as const,
+      values: ["price", "throughput", "latency", "cost", "ttft", "tps"],
+      description: "Provider sort strategy",
+    },
+    "provider.preferred_min_throughput": {
+      type: "number" as const,
+      min: 0,
+      description: "Preferred minimum provider throughput",
+    },
+    "provider.preferred_max_latency": {
+      type: "number" as const,
+      min: 0,
+      description: "Preferred maximum provider latency",
+    },
+    "provider.max_price": {
+      type: "string" as const,
+      description: "Maximum provider price filter",
+    },
+    transforms: {
+      type: "string" as const,
+      description: "Legacy OpenRouter message transforms",
+    },
+    plugins: {
+      type: "string" as const,
+      description: "OpenRouter request plugins",
+    },
   },
 };
 
@@ -692,19 +977,112 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       seed: "seed",
       stream: "stream",
       effort: "reasoning_effort",
+      response_format: "response_format",
+      tools: "tools",
+      tool_choice: "tool_choice",
+      logit_bias: "logit_bias",
+      logprobs: "logprobs",
+      top_logprobs: "top_logprobs",
+      parallel_tool_calls: "parallel_tool_calls",
+      user: "user",
+      service_tier: "service_tier",
+      verbosity: "verbosity",
     },
     specs: {
-      temperature: { type: "number", min: 0, max: 2, default: 0.7, description: "Controls randomness" },
-      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-      max_completion_tokens: { type: "number", min: 1, default: 4096, description: "Maximum completion tokens (reasoning models)" },
-      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-      frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-      presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+      temperature: {
+        type: "number",
+        min: 0,
+        max: 2,
+        default: 0.7,
+        description: "Controls randomness",
+      },
+      max_tokens: {
+        type: "number",
+        min: 1,
+        default: 4096,
+        description: "Maximum output tokens",
+      },
+      max_completion_tokens: {
+        type: "number",
+        min: 1,
+        default: 4096,
+        description: "Maximum completion tokens (reasoning models)",
+      },
+      top_p: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 1,
+        description: "Nucleus sampling",
+      },
+      frequency_penalty: {
+        type: "number",
+        min: -2,
+        max: 2,
+        default: 0,
+        description: "Penalize frequent tokens",
+      },
+      presence_penalty: {
+        type: "number",
+        min: -2,
+        max: 2,
+        default: 0,
+        description: "Penalize repeated topics",
+      },
       stop: { type: "string", description: "Stop sequences" },
-      n: { type: "number", min: 1, default: 1, description: "Completions count" },
+      n: {
+        type: "number",
+        min: 1,
+        default: 1,
+        description: "Completions count",
+      },
       seed: { type: "number", description: "Random seed" },
-      stream: { type: "boolean", default: false, description: "Stream response" },
-      reasoning_effort: { type: "string", values: REASONING_EFFORT_VALUES, default: "medium", description: "Reasoning effort" },
+      stream: {
+        type: "boolean",
+        default: false,
+        description: "Stream response",
+      },
+      reasoning_effort: {
+        type: "string",
+        values: REASONING_EFFORT_VALUES,
+        default: "medium",
+        description: "Reasoning effort",
+      },
+      response_format: {
+        type: "json",
+        description: "Structured response format",
+      },
+      tools: { type: "json", description: "Tool definitions" },
+      tool_choice: {
+        type: "json",
+        description: "Tool selection mode or object",
+      },
+      logit_bias: { type: "json", description: "Token logit bias map" },
+      logprobs: {
+        type: "boolean",
+        description: "Return token log probabilities",
+      },
+      top_logprobs: {
+        type: "number",
+        min: 0,
+        max: 20,
+        description: "Number of most likely tokens to return",
+      },
+      parallel_tool_calls: {
+        type: "boolean",
+        description: "Allow parallel tool calls",
+      },
+      user: { type: "string", description: "End-user identifier" },
+      service_tier: {
+        type: "string",
+        values: ["auto", "default", "flex", "priority"],
+        description: "Processing service tier",
+      },
+      verbosity: {
+        type: "string",
+        values: ["low", "medium", "high"],
+        description: "Response verbosity",
+      },
     },
   },
   azure: OPENAI_COMPATIBLE_DEF,
@@ -721,15 +1099,56 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       cache_ttl: "cache_ttl",
     },
     specs: {
-      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-      top_k: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+      temperature: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0.7,
+        description: "Controls randomness",
+      },
+      max_tokens: {
+        type: "number",
+        min: 0,
+        default: 4096,
+        description: "Maximum output tokens",
+      },
+      top_p: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 1,
+        description: "Nucleus sampling",
+      },
+      top_k: {
+        type: "number",
+        min: 0,
+        default: 40,
+        description: "Top-K sampling",
+      },
       stop_sequences: { type: "string", description: "Stop sequences" },
-      stream: { type: "boolean", default: false, description: "Stream response" },
-      effort: { type: "string", values: REASONING_EFFORT_VALUES, default: "low", description: "Thinking effort" },
-      cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
-      cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+      stream: {
+        type: "boolean",
+        default: false,
+        description: "Stream response",
+      },
+      effort: {
+        type: "string",
+        values: REASONING_EFFORT_VALUES,
+        default: "low",
+        description: "Thinking effort",
+      },
+      cache_control: {
+        type: "string",
+        values: ["ephemeral"],
+        default: "ephemeral",
+        description: "Cache control",
+      },
+      cache_ttl: {
+        type: "string",
+        values: ["5m", "1h"],
+        default: "5m",
+        description: "Cache TTL",
+      },
     },
     cacheValue: "ephemeral",
     cacheTtls: ["5m", "1h"],
@@ -751,17 +1170,64 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       min_tokens: "min_tokens",
     },
     specs: {
-      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-      top_p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-      frequency_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize frequent tokens" },
-      presence_penalty: { type: "number", min: -2, max: 2, default: 0, description: "Penalize repeated topics" },
+      temperature: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0.7,
+        description: "Controls randomness",
+      },
+      max_tokens: {
+        type: "number",
+        min: 1,
+        default: 4096,
+        description: "Maximum output tokens",
+      },
+      top_p: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 1,
+        description: "Nucleus sampling",
+      },
+      frequency_penalty: {
+        type: "number",
+        min: -2,
+        max: 2,
+        default: 0,
+        description: "Penalize frequent tokens",
+      },
+      presence_penalty: {
+        type: "number",
+        min: -2,
+        max: 2,
+        default: 0,
+        description: "Penalize repeated topics",
+      },
       stop: { type: "string", description: "Stop sequences" },
-      n: { type: "number", min: 1, default: 1, description: "Completions count" },
+      n: {
+        type: "number",
+        min: 1,
+        default: 1,
+        description: "Completions count",
+      },
       random_seed: { type: "number", description: "Random seed" },
-      stream: { type: "boolean", default: false, description: "Stream response" },
-      safe_prompt: { type: "boolean", default: false, description: "Enable safe prompt" },
-      min_tokens: { type: "number", min: 0, default: 0, description: "Minimum tokens" },
+      stream: {
+        type: "boolean",
+        default: false,
+        description: "Stream response",
+      },
+      safe_prompt: {
+        type: "boolean",
+        default: false,
+        description: "Enable safe prompt",
+      },
+      min_tokens: {
+        type: "number",
+        min: 0,
+        default: 0,
+        description: "Minimum tokens",
+      },
     },
   },
   cohere: {
@@ -777,14 +1243,53 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       seed: "seed",
     },
     specs: {
-      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-      max_tokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-      p: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling (p)" },
-      k: { type: "number", min: 0, max: 500, default: 40, description: "Top-K sampling (k)" },
-      frequency_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize frequent tokens" },
-      presence_penalty: { type: "number", min: 0, max: 1, default: 0, description: "Penalize repeated topics" },
+      temperature: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0.7,
+        description: "Controls randomness",
+      },
+      max_tokens: {
+        type: "number",
+        min: 1,
+        default: 4096,
+        description: "Maximum output tokens",
+      },
+      p: {
+        type: "number",
+        min: 0.01,
+        max: 0.99,
+        default: 0.75,
+        description: "Nucleus sampling (p)",
+      },
+      k: {
+        type: "number",
+        min: 0,
+        max: 500,
+        default: 0,
+        description: "Top-K sampling (k)",
+      },
+      frequency_penalty: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0,
+        description: "Penalize frequent tokens",
+      },
+      presence_penalty: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0,
+        description: "Penalize repeated topics",
+      },
       stop_sequences: { type: "string", description: "Stop sequences" },
-      stream: { type: "boolean", default: false, description: "Stream response" },
+      stream: {
+        type: "boolean",
+        default: false,
+        description: "Stream response",
+      },
       seed: { type: "number", description: "Random seed" },
     },
   },
@@ -800,14 +1305,50 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       cache_ttl: "cache_ttl",
     },
     specs: {
-      temperature: { type: "number", min: 0, max: 1, default: 0.7, description: "Controls randomness" },
-      maxTokens: { type: "number", min: 1, default: 4096, description: "Maximum output tokens" },
-      topP: { type: "number", min: 0, max: 1, default: 1, description: "Nucleus sampling" },
-      topK: { type: "number", min: 0, default: 40, description: "Top-K sampling" },
+      temperature: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 0.7,
+        description: "Controls randomness",
+      },
+      maxTokens: {
+        type: "number",
+        min: 1,
+        default: 4096,
+        description: "Maximum output tokens",
+      },
+      topP: {
+        type: "number",
+        min: 0,
+        max: 1,
+        default: 1,
+        description: "Nucleus sampling",
+      },
+      topK: {
+        type: "number",
+        min: 0,
+        default: 40,
+        description: "Top-K sampling",
+      },
       stopSequences: { type: "string", description: "Stop sequences" },
-      stream: { type: "boolean", default: false, description: "Stream response" },
-      cache_control: { type: "string", values: ["ephemeral"], default: "ephemeral", description: "Cache control" },
-      cache_ttl: { type: "string", values: ["5m", "1h"], default: "5m", description: "Cache TTL" },
+      stream: {
+        type: "boolean",
+        default: false,
+        description: "Stream response",
+      },
+      cache_control: {
+        type: "string",
+        values: ["ephemeral"],
+        default: "ephemeral",
+        description: "Cache control",
+      },
+      cache_ttl: {
+        type: "string",
+        values: ["5m", "1h"],
+        default: "5m",
+        description: "Cache TTL",
+      },
     },
     cacheValue: "ephemeral",
     cacheTtls: ["5m", "1h"],
@@ -825,22 +1366,60 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
   },
   vercel: {
     // OpenAI-compatible gateway; loose ranges as it proxies many providers
-    params: { ...OPENAI_COMPATIBLE_DEF.params },
+    params: {
+      ...OPENAI_COMPATIBLE_DEF.params,
+      order: "order",
+      only: "only",
+      models: "models",
+      tags: "tags",
+      sort: "sort",
+      caching: "caching",
+      user: "user",
+      byok: "byok",
+      zero_data_retention: "zero_data_retention",
+      disallow_prompt_training: "disallow_prompt_training",
+      hipaa_compliant: "hipaa_compliant",
+      quota_entity_id: "quota_entity_id",
+      provider_timeouts: "provider_timeouts",
+    },
     specs: {
       ...OPENAI_COMPATIBLE_DEF.specs,
-      order: { type: "string", description: "Gateway provider order" },
-      only: { type: "string", description: "Gateway provider allowlist" },
-      models: { type: "string", description: "Gateway fallback models" },
-      tags: { type: "string", description: "Gateway usage tags" },
-      sort: { type: "string", values: ["cost", "ttft", "tps"], description: "Gateway provider sort strategy" },
-      caching: { type: "string", values: ["auto"], description: "Gateway automatic caching strategy" },
+      order: { type: "string[]", description: "Gateway provider order" },
+      only: { type: "string[]", description: "Gateway provider allowlist" },
+      models: { type: "string[]", description: "Gateway fallback models" },
+      tags: { type: "string[]", description: "Gateway usage tags" },
+      sort: {
+        type: "string",
+        values: ["cost", "ttft", "tps"],
+        description: "Gateway provider sort strategy",
+      },
+      caching: {
+        type: "string",
+        values: ["auto"],
+        description: "Gateway automatic caching strategy",
+      },
       user: { type: "string", description: "Gateway usage user identifier" },
-      byok: { type: "string", description: "Gateway BYOK credentials" },
-      zero_data_retention: { type: "boolean", description: "Gateway zero data retention routing" },
-      disallow_prompt_training: { type: "boolean", description: "Gateway prompt training opt-out routing" },
-      hipaa_compliant: { type: "boolean", description: "Gateway HIPAA-compliant routing" },
-      quota_entity_id: { type: "string", description: "Gateway quota entity identifier" },
-      provider_timeouts: { type: "string", description: "Gateway provider timeouts" },
+      byok: { type: "json", description: "Gateway BYOK credentials" },
+      zero_data_retention: {
+        type: "boolean",
+        description: "Gateway zero data retention routing",
+      },
+      disallow_prompt_training: {
+        type: "boolean",
+        description: "Gateway prompt training opt-out routing",
+      },
+      hipaa_compliant: {
+        type: "boolean",
+        description: "Gateway HIPAA-compliant routing",
+      },
+      quota_entity_id: {
+        type: "string",
+        description: "Gateway quota entity identifier",
+      },
+      provider_timeouts: {
+        type: "json",
+        description: "Gateway provider timeouts",
+      },
     },
   },
   xai: OPENAI_COMPATIBLE_DEF,
@@ -875,20 +1454,24 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
 // ── Derived exports ─────────────────────────────────────────────────────────
 
 /** Canonical param name → provider-specific API param name. */
-export const PROVIDER_PARAMS: Record<Provider, Record<string, string>> =
-  Object.fromEntries(
-    (
-      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
-    ).map(([provider, def]) => [provider, def.params]),
-  ) as Record<Provider, Record<string, string>>;
+export const PROVIDER_PARAMS: Record<
+  Provider,
+  Record<string, string>
+> = Object.fromEntries(
+  (
+    Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+  ).map(([provider, def]) => [provider, def.params]),
+) as Record<Provider, Record<string, string>>;
 
 /** Validation specs per provider, keyed by provider-specific param name. */
-export const PARAM_SPECS: Record<Provider, Record<string, ParamSpec>> =
-  Object.fromEntries(
-    (
-      Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
-    ).map(([provider, def]) => [provider, def.specs]),
-  ) as Record<Provider, Record<string, ParamSpec>>;
+export const PARAM_SPECS: Record<
+  Provider,
+  Record<string, ParamSpec>
+> = Object.fromEntries(
+  (
+    Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
+  ).map(([provider, def]) => [provider, def.specs]),
+) as Record<Provider, Record<string, ParamSpec>>;
 
 /**
  * Cache value normalization per provider.
@@ -898,10 +1481,9 @@ export const CACHE_VALUES: Partial<Record<Provider, string>> =
   Object.fromEntries(
     (
       Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
-    )
-      .flatMap(([provider, def]) =>
-        def.cacheValue === undefined ? [] : [[provider, def.cacheValue]],
-      ),
+    ).flatMap(([provider, def]) =>
+      def.cacheValue === undefined ? [] : [[provider, def.cacheValue]],
+    ),
   );
 
 /** Valid cache TTL values per provider. Omitted providers don't support TTL selection. */
@@ -909,10 +1491,9 @@ export const CACHE_TTLS: Partial<Record<Provider, string[]>> =
   Object.fromEntries(
     (
       Object.entries(PROVIDER_DEFINITIONS) as [Provider, ProviderDefinition][]
-    )
-      .flatMap(([provider, def]) =>
-        def.cacheTtls === undefined ? [] : [[provider, def.cacheTtls]],
-      ),
+    ).flatMap(([provider, def]) =>
+      def.cacheTtls === undefined ? [] : [[provider, def.cacheTtls]],
+    ),
   );
 
 /**
@@ -984,12 +1565,7 @@ export const REASONING_MODEL_UNSUPPORTED = new Set([
  * e.g. "anthropic.claude-sonnet-4-5-20250929-v1:0"
  */
 export type BedrockModelFamily =
-  | "anthropic"
-  | "meta"
-  | "amazon"
-  | "mistral"
-  | "cohere"
-  | "ai21";
+  "anthropic" | "meta" | "amazon" | "mistral" | "cohere" | "ai21";
 
 export function detectBedrockModelFamily(
   model: string,

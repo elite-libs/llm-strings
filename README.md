@@ -73,7 +73,9 @@ bun add llm-strings
 ## Quick Start
 
 ```ts
-import { build, normalize, parse, validate } from "llm-strings";
+import { build, parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
+import { validate } from "llm-strings/validate";
 
 const input = "llm://anthropic/claude-sonnet-5?cache=5m&max=4096";
 
@@ -146,7 +148,8 @@ LLM_URL="llm://${APP_NAME-:llm-app}:${API_KEY-:sk-proj-abc123}@anthropic/claude-
 ```
 
 ```ts
-import { normalize, parse } from "llm-strings";
+import { parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
 
 const { config, provider } = normalize(parse(process.env.LLM_URL!));
 
@@ -221,7 +224,8 @@ LLM_URL="llm://bedrock/us.anthropic.claude-sonnet-5?cache=1h&max=2000"
 ```
 
 ```ts
-import { normalize, parse } from "llm-strings";
+import { parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
 
 for (const value of [
   "llm://openai/gpt-5.6-sol?max=2000&effort=medium",
@@ -249,7 +253,8 @@ for (const value of [
 ### Resolve short host aliases
 
 ```ts
-import { normalize, parse } from "llm-strings";
+import { parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
 
 const { config, provider } = normalize(
   parse("llm://groq/openai/gpt-oss-120b?max=1000"),
@@ -273,7 +278,7 @@ include a scheme or path; only the host portion is used.
 ### Validate before calling the provider
 
 ```ts
-import { validate } from "llm-strings";
+import { validate } from "llm-strings/validate";
 
 validate("llm://anthropic/claude-sonnet-5?cache=2h");
 // [{ param: "cache_ttl", message: "\"cache_ttl\" must be one of [5m, 1h], got \"2h\".", ... }]
@@ -300,7 +305,8 @@ validate("llm://fal/fal-ai/nano-banana-2?future_model_param=1", {
 ### See exactly what changed
 
 ```ts
-import { normalize, parse } from "llm-strings";
+import { parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
 
 const { changes } = normalize(
   parse("llm://bedrock/anthropic.claude-sonnet-5?cache=1h&max=4096"),
@@ -333,6 +339,45 @@ CANONICAL_PARAM_SPECS.anthropic.cache_ttl;
 //   description: "Cache TTL"
 // }
 ```
+
+Model availability changes much faster than package releases. Query either
+gateway's public catalog at runtime instead of relying on a bundled snapshot:
+
+```ts
+import { listAvailableModels } from "llm-strings/model-catalog";
+
+const openAiModels = await listAvailableModels({
+  source: "vercel", // or "openrouter"
+  provider: "openai",
+});
+```
+
+Each entry contains a normalized model ID, provider, context window, output
+limit, and `supportedParameters` when published by the source. The helper makes
+no request at import time and accepts an `AbortSignal` or custom `fetch`.
+
+### Opt-in provider-aware checks
+
+The base `llm-strings` entry only parses/builds connection strings and resolves
+lightweight host shorthands. Provider/model-aware normalization and validation
+are deliberately split into opt-in paths:
+
+```ts
+import { parse } from "llm-strings";
+import { safeParse } from "llm-strings/safe";
+
+const raw = parse("llm://openai/gpt-5.6-sol?effort=high");
+const checked = safeParse("llm://openai/gpt-5.6-sol?effort=high");
+
+if (checked.success) {
+  checked.config; // provider-normalized settings
+  checked.issues; // warnings, if any
+}
+```
+
+Import `llm-strings/ai-sdk` only when AI SDK `providerOptions` shaping is
+needed. Importing the base parser does not include validation tables, AI SDK
+adapters, live catalog code, or a bundled model/capability list.
 
 ## Supported Providers
 
@@ -412,7 +457,8 @@ them to provider-native names.
 ## Prompt caching
 
 ```ts
-import { normalize, parse } from "llm-strings";
+import { parse } from "llm-strings";
+import { normalize } from "llm-strings/normalize";
 
 normalize(parse("llm://anthropic/claude-sonnet-5?max=4096&cache=true")).config
   .params;
@@ -528,14 +574,15 @@ Import from `llm-strings/providers`:
 ## TypeScript
 
 ```ts
+import type { LlmConnectionConfig } from "llm-strings";
+
 import type {
-  LlmConnectionConfig,
   NormalizeChange,
   NormalizeOptions,
   NormalizeResult,
-  ValidateOptions,
-  ValidationIssue,
-} from "llm-strings";
+} from "llm-strings/normalize";
+
+import type { ValidateOptions, ValidationIssue } from "llm-strings/validate";
 
 import type {
   BedrockModelFamily,

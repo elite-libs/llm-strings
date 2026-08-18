@@ -174,6 +174,13 @@ describe("normalize", () => {
   });
 
   describe("OpenAI reasoning models", () => {
+    it("preserves an explicit max_completion_tokens parameter", () => {
+      const { config } = normalize(
+        parse("llm://openai/gpt-5.6-sol?max_completion_tokens=8192"),
+      );
+      expect(config.params).toEqual({ max_completion_tokens: "8192" });
+    });
+
     it("remaps max_tokens → max_completion_tokens for o3", () => {
       const config = parse("llm://api.openai.com/o3?max=4096");
       const { config: result } = normalize(config);

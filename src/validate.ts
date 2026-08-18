@@ -237,6 +237,35 @@ export function validate(
       }
     }
 
+    if (spec.type === "json" || spec.type === "string[]") {
+      try {
+        const parsed: unknown =
+          spec.type === "string[]" && !value.trim().startsWith("[")
+            ? value
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean)
+            : JSON.parse(value);
+        if (
+          spec.type === "string[]" &&
+          (!Array.isArray(parsed) ||
+            parsed.some((item) => typeof item !== "string"))
+        ) {
+          throw new Error("not a string array");
+        }
+      } catch {
+        issues.push({
+          param: key,
+          value,
+          message:
+            spec.type === "string[]"
+              ? `"${key}" should be a JSON array of strings.`
+              : `"${key}" should be valid JSON.`,
+          severity: "error",
+        });
+      }
+    }
+
     if (spec.type === "string" && spec.values) {
       if (!spec.values.includes(value)) {
         issues.push({

@@ -8,6 +8,8 @@ export default defineConfig({
     "src/validate.ts",
     "src/ai-sdk.ts",
     "src/providers.ts",
+    "src/model-catalog.ts",
+    "src/safe.ts",
   ],
   format: ["esm", "cjs"],
   dts: false,

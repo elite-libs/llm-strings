@@ -1,6 +1,6 @@
 {
   "name": "llm-strings",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "packageManager": "pnpm@11.1.1",
   "description": "Parse and build LLM connection strings — like database URLs, but for LLM APIs",
   "type": "module",
@@ -68,13 +68,33 @@
         "types": "./dist/providers.d.cts",
         "default": "./dist/providers.cjs"
       }
+    },
+    "./model-catalog": {
+      "import": {
+        "types": "./dist/model-catalog.d.ts",
+        "default": "./dist/model-catalog.js"
+      },
+      "require": {
+        "types": "./dist/model-catalog.d.cts",
+        "default": "./dist/model-catalog.cjs"
+      }
+    },
+    "./safe": {
+      "import": {
+        "types": "./dist/safe.d.ts",
+        "default": "./dist/safe.js"
+      },
+      "require": {
+        "types": "./dist/safe.d.cts",
+        "default": "./dist/safe.cjs"
+      }
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-dcts.mjs",
+    "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-dcts.mjs && node scripts/check-base-bundle-size.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

@@ -21,9 +21,7 @@ export interface AiSdkProviderOptionsOptions extends NormalizeOptions {
 }
 
 export type AiSdkProviderOptionsInput =
-  | string
-  | LlmConnectionConfig
-  | NormalizeResult;
+  string | LlmConnectionConfig | NormalizeResult;
 
 type ProviderOptionsKey = Provider | "gateway" | "vertex" | "blackForestLabs";
 

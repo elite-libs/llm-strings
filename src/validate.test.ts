@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { validate } from "./validate.js";
 
 describe("validate", () => {
+  it("validates structured OpenAI-compatible arguments as JSON", () => {
+    expect(
+      validate(
+        "llm://openrouter/openai/gpt-5.6-sol?response_format=%7B%22type%22%3A%22json_object%22%7D",
+      ),
+    ).toEqual([]);
+    expect(
+      validate("llm://openai/gpt-5.6-sol?response_format=not-json"),
+    ).toEqual([
+      expect.objectContaining({
+        param: "response_format",
+        severity: "error",
+        message: '"response_format" should be valid JSON.',
+      }),
+    ]);
+  });
+
   describe("valid configs", () => {
     it("returns no issues for valid OpenAI reasoning params", () => {
       const issues = validate(

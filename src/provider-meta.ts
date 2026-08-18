@@ -176,7 +176,7 @@ export const PROVIDER_META: ProviderMeta[] = [
  * with defaults and descriptions for UI consumption.
  */
 export interface CanonicalParamSpec {
-  type: "number" | "string" | "boolean" | "enum";
+  type: "number" | "string" | "boolean" | "json" | "string[]" | "enum";
   min?: number;
   max?: number;
   values?: string[];
