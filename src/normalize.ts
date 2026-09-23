@@ -61,6 +61,16 @@ export function normalize(
       : undefined;
   const changes: NormalizeChange[] = [];
   const params: Record<string, string> = {};
+  // Resolve aliases before iterating so behavior does not depend on query order.
+  const effort = Object.fromEntries(
+    Object.entries(config.params).map(([key, value]) => [
+      ALIASES[key] ?? key,
+      value,
+    ]),
+  ).effort;
+  const supportsNoReasoning = ["gpt-6-sol", "gpt-6-luna"].some((family) =>
+    modelMatchesFamily(config.model, family),
+  );
 
   for (const [rawKey, value] of Object.entries(config.params)) {
     let key = rawKey;
@@ -167,15 +177,22 @@ export function normalize(
       key = "max_completion_tokens";
     }
 
-    const isGpt6AstraUnsupported =
-      modelMatchesFamily(config.model, "gpt-6-astra") &&
+    const isGpt6Unsupported =
+      ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"].some((family) =>
+        modelMatchesFamily(config.model, family),
+      ) &&
       (key === "top_logprobs" || key === "logprobs");
 
     if (
       provider &&
       canHostOpenAIModels(provider) &&
       isReasoningModel(config.model) &&
-      (REASONING_MODEL_UNSUPPORTED.has(key) || isGpt6AstraUnsupported)
+      !(
+        supportsNoReasoning &&
+        effort === "none" &&
+        ["temperature", "top_p", "top_logprobs", "logprobs"].includes(key)
+      ) &&
+      (REASONING_MODEL_UNSUPPORTED.has(key) || isGpt6Unsupported)
     ) {
       if (options.verbose) {
         changes.push({

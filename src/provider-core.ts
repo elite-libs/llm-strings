@@ -1106,6 +1106,7 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
   azure: OPENAI_COMPATIBLE_DEF,
   anthropic: {
     params: {
+      thinking: "thinking",
       temperature: "temperature",
       max_tokens: "max_tokens",
       top_p: "top_p",
@@ -1117,6 +1118,7 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
       cache_ttl: "cache_ttl",
     },
     specs: {
+      thinking: { type: "string", description: "JSON thinking configuration" },
       temperature: {
         type: "number",
         min: 0,
@@ -1565,6 +1567,8 @@ export function detectGatewaySubProvider(model: string): Provider | undefined {
     "google-vertex": "google",
     mistral: "mistral",
     cohere: "cohere",
+    xai: "xai",
+    "x-ai": "xai",
   };
   return direct[prefix];
 }
@@ -1612,3 +1616,12 @@ export function bedrockSupportsCaching(model: string): boolean {
   }
   return false;
 }
+
+/** Jev returns typed decisions, not generated text. Preserve its gateway namespace. */
+export function isJevModel(model: string): boolean {
+  return /^~?typesafe\/jev-(?:\d+(?:\.\d+)*(?:-\d{8})?|latest)$/.test(model);
+}
+
+/** OpenRouter's Jev API is separate from /api/v1/chat/completions. */
+export const OPENROUTER_DECISIONS_URL =
+  "https://openrouter.ai/api/alpha/decisions";

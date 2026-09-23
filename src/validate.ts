@@ -6,6 +6,7 @@ import {
   bedrockSupportsCaching,
   detectBedrockModelFamily,
   modelMatchesFamily,
+  isJevModel,
   type ParamSpec,
   type Provider,
 } from "./provider-core.js";
@@ -101,6 +102,27 @@ export function validate(
   // the sub-provider's specs. Fall back to the gateway's loose specs otherwise.
   const effectiveProvider = subProvider ?? provider;
   const specs = PARAM_SPECS[effectiveProvider];
+  if (provider === "openrouter" && isJevModel(config.model)) {
+    for (const [key, value] of Object.entries(config.params)) {
+      if (
+        [
+          "temperature",
+          "top_p",
+          "max_tokens",
+          "max_completion_tokens",
+          "reasoning_effort",
+          "stream",
+        ].includes(key)
+      ) {
+        issues.push({
+          param: key,
+          value,
+          severity: "error",
+          message: `Jev uses the Decisions API and does not support chat generation parameter "${key}".`,
+        });
+      }
+    }
+  }
 
   const gatewayReverseMap = subProvider
     ? buildReverseParamMap(provider)
@@ -148,6 +170,64 @@ export function validate(
         severity: "error",
       });
       continue;
+    }
+
+    if (
+      effectiveProvider === "xai" &&
+      modelMatchesFamily(config.model, "grok-4.7")
+    ) {
+      if (
+        key === "reasoning_effort" &&
+        !["low", "medium", "high", "xhigh"].includes(value)
+      ) {
+        issues.push({
+          param: key,
+          value,
+          severity: "error",
+          message:
+            "Grok 4.7 reasoning effort must be low, medium, high, or xhigh.",
+        });
+        continue;
+      }
+      if (key === "logprobs" || key === "top_logprobs") {
+        issues.push({
+          param: key,
+          value,
+          severity: options.strict ? "error" : "warning",
+          message: `Grok 4.7 ignores "${key}".`,
+        });
+        continue;
+      }
+    }
+
+    if (
+      effectiveProvider === "anthropic" &&
+      ["claude-fable-5-1", "claude-opus-5-5"].some((family) =>
+        modelMatchesFamily(config.model, family),
+      ) &&
+      key === "thinking"
+    ) {
+      let thinking: unknown;
+      try {
+        thinking = JSON.parse(value);
+      } catch {
+        thinking = undefined;
+      }
+      if (
+        !thinking ||
+        typeof thinking !== "object" ||
+        !("type" in thinking) ||
+        thinking.type !== "adaptive"
+      ) {
+        issues.push({
+          param: key,
+          value,
+          severity: "error",
+          message:
+            'This Claude model requires adaptive thinking; use thinking={"type":"adaptive"} or omit it.',
+        });
+        continue;
+      }
     }
 
     // Bedrock model-family-specific checks

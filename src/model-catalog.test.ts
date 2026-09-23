@@ -72,6 +72,31 @@ describe("listAvailableModels", () => {
     });
   });
 
+  it("preserves Jev decision modality without inventing text capabilities", async () => {
+    const models = await listAvailableModels({
+      source: "openrouter",
+      provider: "typesafe",
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: "typesafe/jev-1.13",
+                architecture: { output_modalities: ["decisions"] },
+                supported_parameters: [],
+                context_length: 32000,
+              },
+            ],
+          }),
+        ),
+    });
+    expect(models).toHaveLength(1);
+    expect(models[0]).toMatchObject({
+      outputModalities: ["decisions"],
+      supportedParameters: [],
+    });
+  });
+
   it("rejects failed and malformed catalog responses", async () => {
     await expect(
       listAvailableModels({

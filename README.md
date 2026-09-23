@@ -623,3 +623,11 @@ MIT © Dan Levy
 **[Read the spec](https://danlevy.net/llm-connection-strings/) · [Report a bug](https://github.com/justsml/llm-strings/issues) · [Request a feature](https://github.com/justsml/llm-strings/issues)**
 
 </div>
+
+### Latest model compatibility
+
+See the [September 22 model support notes](docs/model-support-2026-09-22.md)
+for GPT-6 Astra/Sol/Luna, Claude Opus 5.5/Fable 5.1/Sonnet 5, Grok 4.7,
+and TypeSafe Jev. Jev uses OpenRouter's Decisions API, not chat completions.
+Use `isJevModel` from `llm-strings/providers` to recognize its model route;
+`listAvailableModels` preserves declared `outputModalities`, including `decisions`.

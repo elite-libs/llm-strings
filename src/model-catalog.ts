@@ -9,6 +9,8 @@ export interface AvailableModel {
   contextWindow?: number;
   maxOutputTokens?: number;
   supportedParameters: string[];
+  /** Present when the catalog declares output modalities (e.g. decisions for Jev). */
+  outputModalities?: string[];
   source: ModelCatalogSource;
 }
 
@@ -94,6 +96,15 @@ export async function listAvailableModels(
               ?.max_completion_tokens,
         ),
         supportedParameters: stringArray(model.supported_parameters),
+        ...((model.architecture as Record<string, unknown> | undefined)
+          ?.output_modalities
+          ? {
+              outputModalities: stringArray(
+                (model.architecture as Record<string, unknown>)
+                  .output_modalities,
+              ),
+            }
+          : {}),
         source,
       },
     ];
