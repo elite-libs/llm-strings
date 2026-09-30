@@ -178,7 +178,7 @@ export function normalize(
     }
 
     const isGpt6Unsupported =
-      ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"].some((family) =>
+      ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-luna"].some((family) =>
         modelMatchesFamily(config.model, family),
       ) &&
       (key === "top_logprobs" || key === "logprobs");

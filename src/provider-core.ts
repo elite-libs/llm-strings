@@ -1107,6 +1107,7 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
   anthropic: {
     params: {
       thinking: "thinking",
+      tool_choice: "tool_choice",
       temperature: "temperature",
       max_tokens: "max_tokens",
       top_p: "top_p",
@@ -1119,6 +1120,7 @@ export const PROVIDER_DEFINITIONS: Record<Provider, ProviderDefinition> = {
     },
     specs: {
       thinking: { type: "string", description: "JSON thinking configuration" },
+      tool_choice: { type: "string", description: "JSON tool selection" },
       temperature: {
         type: "number",
         min: 0,

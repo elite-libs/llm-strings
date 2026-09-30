@@ -144,14 +144,16 @@ export function validate(
 
     if (
       effectiveProvider === "openai" &&
-      modelMatchesFamily(config.model, "gpt-6-astra") &&
+      ["gpt-6-astra", "gpt-6.1-sol"].some((family) =>
+        modelMatchesFamily(config.model, family),
+      ) &&
       key === "reasoning_effort" &&
       !["low", "medium", "high", "xhigh", "max"].includes(value)
     ) {
       issues.push({
         param: key,
         value,
-        message: `"${key}" must be one of [low, medium, high, xhigh, max] for GPT-6 Astra, got "${value}".`,
+        message: `"${key}" must be one of [low, medium, high, xhigh, max] for ${config.model}, got "${value}".`,
         severity: "error",
       });
       continue;
@@ -225,6 +227,60 @@ export function validate(
           severity: "error",
           message:
             'This Claude model requires adaptive thinking; use thinking={"type":"adaptive"} or omit it.',
+        });
+        continue;
+      }
+    }
+
+    if (
+      effectiveProvider === "anthropic" &&
+      ["claude-sonnet-5-5", "claude-sonnet-5.5"].some((family) =>
+        modelMatchesFamily(config.model, family),
+      )
+    ) {
+      if (key === "thinking" || key === "tool_choice") {
+        let setting: unknown;
+        try {
+          setting = JSON.parse(value);
+        } catch {
+          setting = undefined;
+        }
+        const type =
+          setting && typeof setting === "object" && "type" in setting
+            ? setting.type
+            : undefined;
+        if (
+          (key === "thinking" &&
+            ((type !== "adaptive" && type !== "between_tools") ||
+              (type === "between_tools" &&
+                (Object.keys(setting as object).length !== 1 ||
+                  ["xhigh", "max"].includes(
+                    config.params.effort ?? config.params.reasoning_effort,
+                  ))))) ||
+          (key === "tool_choice" && type !== "auto" && type !== "none")
+        ) {
+          issues.push({
+            param: key,
+            value,
+            severity: "error",
+            message:
+              key === "thinking"
+                ? "Claude Sonnet 5.5 accepts adaptive thinking, or between_tools at low, medium, or high effort."
+                : 'Claude Sonnet 5.5 accepts tool_choice types "auto" and "none".',
+          });
+          continue;
+        }
+      }
+      if (
+        (key === "temperature" && value !== "1") ||
+        (key === "top_p" && value !== "1") ||
+        key === "top_k"
+      ) {
+        issues.push({
+          param: key,
+          value,
+          severity: "error",
+          message: `Claude Sonnet 5.5 does not accept a non-default "${key}".`,
         });
         continue;
       }

@@ -1,4 +1,4 @@
-export { parse, build } from "./parse.js";
+export { parse, parseLlmString, build } from "./parse.js";
 export type { LlmConnectionConfig } from "./parse.js";
 
 export { HOST_ALIASES, resolveHostAlias } from "./host-alias.js";

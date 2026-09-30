@@ -1,6 +1,8 @@
 import { resolveHostAlias } from "./host-alias.js";
 import type { HostAlias } from "./host-alias.js";
 
+export { parse as parseLlmString };
+
 export interface LlmConnectionConfig {
   /** The original connection string */
   raw: string;
