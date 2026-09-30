@@ -1,7 +1,7 @@
 {
   "name": "llm-strings",
   "version": "1.9.1",
-  "packageManager": "pnpm@11.1.1",
+  "packageManager": "pnpm@12.8.1+sha512.f64ba907507f5ceafe06c8d38e6052d0179444580ec1279ddd5bfc11cb48aa8a2644b66598e07e761da84872a9fc57d5f902b87fa49d024198d558612aabbe45",
   "description": "Parse and build LLM connection strings — like database URLs, but for LLM APIs",
   "type": "module",
   "sideEffects": false,
@@ -133,17 +133,12 @@
     "url": "git+https://github.com/justsml/llm-strings.git"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.3",
-    "@vitest/coverage-v8": "^4.1.10",
-    "prettier": "^3.9.4",
-    "terser": "^5.49.0",
+    "@biomejs/biome": "2.5.14",
+    "@vitest/coverage-v8": "5.0.2",
+    "prettier": "3.9.9",
+    "terser": "5.51.2",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
+    "vitest": "5.0.2"
   }
 }
