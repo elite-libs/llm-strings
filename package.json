@@ -96,6 +96,7 @@
   "scripts": {
     "build": "tsup && tsc -p tsconfig.build.json && node scripts/copy-dcts.mjs && node scripts/check-base-bundle-size.mjs",
     "test": "vitest run",
+    "test:runtime": "node scripts/check-runtime-compat.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "biome lint .",

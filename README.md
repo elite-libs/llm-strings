@@ -54,6 +54,10 @@ proposal by Dan Levy. See the [draft IETF RFC for `llm://`](https://datatracker.
 
 ## Install
 
+The published library supports Node.js 20 and newer. Development uses Node.js
+24 (see `.nvmrc`); its Vitest 5 tooling requires Node.js 22.12 or newer. CI
+builds on Node.js 24 and checks the ESM and CommonJS exports on Node.js 20.
+
 ```bash
 npm install llm-strings
 ```
